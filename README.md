@@ -1,226 +1,147 @@
 🚨 Advanced Malware Analysis - Educational Project
 ⚠️ PERINGATAN: HANYA UNTUK TUJUAN EDUKASI DAN PENELITIAN KEAMANAN
 
-📖 Deskripsi Proyek
-Proyek ini adalah simulasi malware canggih yang dikembangkan semata-mata untuk tujuan:
+🎯 Fungsi Utama
+Malware ini adalah RAT (Remote Access Trojan) yang sangat canggih dengan kemampuan untuk mengontrol sistem korban secara penuh, mencuri data sensitif, dan mempertahankan akses.
 
-Pendidikan keamanan siber
-
-Penelitian teknik pertahanan
-
-Pengembangan alat deteksi
-
-Pelatihan red team/blue team
-
-DILARANG KERAS menggunakan kode ini untuk aktivitas ilegal atau berbahaya.
-
-🎯 Tujuan Edukasi
-🔍 Memahami Teknik Malware Modern
-Anti-analysis dan EDR evasion
-
-Command & Control (C2) infrastructure
-
-Persistence mechanisms
-
-Data exfiltration techniques
-
-Process injection methods
-
-🛡️ Mengembangkan Pertahanan
-Deteksi behavioral analysis
-
-Network traffic monitoring
-
-Memory forensics
-
-Incident response procedures
-
-⚙️ Komponen Teknis
-1. Advanced Anti-Analysis
+🔧 Komponen Utama
+1. Anti-Analysis & EDR Evasion
 cpp
 class AdvancedAntiAnalysis
-Deteksi VM/Sandbox environment
+Deteksi VM/Sandbox: CPUID, hypervisor bit, proses VM, file VM, registry keys
 
-Timing attack detection
+Deteksi Debugger: Hardware breakpoints, memory scans
 
-Hardware breakpoint checks
+Deteksi Analisis: Timing attacks, user activity monitoring
 
-ETW/AMSI bypass techniques
+Disable Keamanan: ETW patching, AMSI bypass
 
-2. Secure Communication
+Fingerprinting: Hash sistem berdasarkan CPU, memory, disk, MAC
+
+2. Enkripsi & Keamanan
 cpp
 class SecureCrypto
+AES-GCM untuk enkripsi data
+
+Random key generation menggunakan BCrypt
+
+PBKDF2 untuk key derivation
+
+HMAC untuk integritas data
+
+3. Command & Control (C2)
+cpp
 class AdvancedC2Infrastructure
-AES-GCM encryption
+Multiple Communication Channels:
 
-Multiple C2 channels (HTTP, DNS, ICMP)
+HTTP/HTTPS dengan domain DGA (Domain Generation Algorithm)
 
-Domain Generation Algorithm (DGA)
+DNS tunneling
 
-Fallback communication methods
+ICMP tunneling
 
-3. Data Collection
+PowerShell remoting
+
+WMI commands
+
+COM objects
+
+Fallback Mechanisms: Beralih otomatis jika server utama down
+
+Encrypted Communication: Semua data dienkripsi sebelum dikirim
+
+4. Data Exfiltration
 cpp
 class RealTimeDataCollector
-Browser data extraction
+Data yang Dicuri:
 
-Financial information gathering
+Browser Data: History, cookies, login data, bookmarks (Chrome, Firefox, Edge)
 
-Screenshot capture
+Financial Data: Info perbankan, PayPal, cryptocurrency
 
-Keystroke logging
+Clipboard: Teks yang disalin
 
-Credential harvesting
+Screenshots: Capture layar real-time
 
-4. Persistence & Injection
+Keystrokes: Keylogger sederhana
+
+System Info: Computer name, username, OS version, network info
+
+Credentials: Windows credentials, browser saved passwords
+
+5. Process Injection
+cpp
+class AdvancedProcessInjection
+Metode Injeksi:
+
+APC Injection: QueueUserAPC ke thread target
+
+Process Doppelgänging: Menggunakan transaksi NTFS
+
+Reflective DLL Injection: Load DLL tanpa file system
+
+PowerShell Injection: Menggunakan PowerShell remoting
+
+WMI Injection: Melalui Windows Management Instrumentation
+
+6. Persistence Mechanisms
 cpp
 class AdvancedPersistence
-class AdvancedProcessInjection
-Registry modifications
+Teknik Persistensi:
 
-Scheduled tasks
+Registry: Run keys, policies, Winlogon
 
-Service installation
+Scheduled Tasks: Multiple triggers (logon, boot, daily, idle)
 
-Multiple injection techniques
+Windows Services: Service dengan nama acak
 
-🏛️ Legal & Ethical Guidelines
-✅ Penggunaan yang Diizinkan
-Penelitian akademik yang disetujui
+WMI Events: Trigger pada event sistem
 
-Pengembangan alat deteksi malware
+DLL Hijacking: Ganti DLL sistem dengan malware
 
-Pelatihan keamanan siber
+COM Hijacking: Hijack COM objects
 
-Testing lingkungan terkontrol
+Shortcut Modification: Modifikasi shortcut aplikasi
 
-Educational demonstrations
+Browser Extensions: Extension Chrome/Firefox/Edge
 
-❌ Penggunaan yang Dilarang
-Aktivitas ilegal
+Office Add-ins: Add-in Word/Excel/PowerPoint
 
-Penyerangan sistem tanpa izin
+7. Self-Protection
+cpp
+class AdvancedSelfProtection
+Process Protection: Set process sebagai critical
 
-Penyebaran malware
+Process Hiding: Sembunyikan dari task manager
 
-Pencurian data
+Memory Protection: Proteksi memory regions
 
-Tujuan kriminal lainnya
+Anti-Debugging: Deteksi dan blok debugger
 
-🔬 Environment Setup
-Prerequisites
-bash
-# Hanya gunakan dalam lingkungan yang aman dan terkontrol
-- Virtual machine terisolasi
-- Network segmentation
-- Monitoring tools installed
-- Legal approval obtained
-Safety Measures
-bash
-1. ISOLASI JARINGAN - Pastikan tidak terhubung ke internet
-2. SNAPSHOT VM - Buat backup sebelum eksekusi
-3. MONITORING - Aktifkan logging dan monitoring
-4. APPROVAL - Dapatkan persetujuan legal terlebih dahulu
-📚 Learning Objectives
-Untuk Security Researcher
-Memahami teknik evasion malware modern
+Timing Attack Detection: Deteksi analisis berdasarkan waktu eksekusi
 
-Mengembangkan signature detection
+🚀 Cara Kerja
+Flow Eksekusi:
+Initialization → Inisialisasi COM, GDI+
 
-Mempelajari behavioral analysis
+Anti-Analysis Check → Cek lingkungan analisis
 
-Incident response preparation
+Evasion → Lakukan teknik evasion jika diperlukan
 
-Untuk Developer
-Secure coding practices
+Persistence → Install berbagai mekanisme persistensi
 
-Vulnerability understanding
+Self-Protection → Aktifkan perlindungan diri
 
-Defense mechanism development
+Data Collection → Mulai koleksi data real-time
 
-Security testing methodologies
+C2 Beacon → Kirim beacon ke server C2
 
-Untuk IT Professional
-Threat detection capabilities
+Main Loop → Terima dan eksekusi perintah dari C2
 
-System hardening techniques
-
-Monitoring best practices
-
-Recovery procedures
-
-🛡️ Defense Recommendations
-Deteksi
-yaml
-Network Monitoring:
-  - Unusual DNS queries
-  - Encrypted C2 communications
-  - Multiple protocol usage
-
-Host Monitoring:
-  - Process injection attempts
-  - Registry modifications
-  - Service creation
-  - Scheduled task additions
-Pencegahan
-yaml
-Application Whitelisting:
-  - Approved executables only
-  - Digital signature verification
-
-Network Security:
-  - Egress filtering
-  - DNS monitoring
-  - Protocol analysis
-
-Endpoint Protection:
-  - Behavioral analysis
-  - Memory protection
-  - Application control
-📋 Lab Setup Checklist
-Pre-Execution
-Environment fully isolated
-
-Legal approvals obtained
-
-Monitoring tools active
-
-Backup snapshot created
-
-Team members notified
-
-During Execution
-Network traffic captured
-
-System behavior logged
-
-Memory dumps collected
-
-Registry changes tracked
-
-Post-Execution
-Comprehensive analysis
-
-Detection rules developed
-
-Recovery procedures tested
-
-Lessons documented
-
-🎓 Educational Resources
-Recommended Reading
-"Practical Malware Analysis" by Michael Sikorski
-
-"The Malware Analyst's Cookbook" by Michael Ligh
-
-"Windows Internals" by Mark Russinovich
-
-Training Courses
-SANS FOR610: Reverse-Engineering Malware
-
-Offensive Security Malware Expert (OSME)
-
-CREST Certified Malware Analyst
+Komunikasi C2:
+text
+Malware → Encrypt Data → Send via Multiple Channels → C2 Server
+C2 Server → Send Commands → Malware Execute → Send Results Back
 
 ⚠️ Disclaimer Penting
 PERINGATAN LEGAL:
