@@ -2,7 +2,7 @@
 ⚠️ PERINGATAN: HANYA UNTUK TUJUAN EDUKASI DAN PENELITIAN KEAMANAN
 
 🎯 Fungsi Utama
-Malware ini adalah RAT (Remote Access Trojan) yang sangat canggih dengan kemampuan untuk mengontrol sistem korban secara penuh, mencuri data sensitif, dan mempertahankan akses.
+Malware ini adalah RAT (Remote Access Trojan)dengan kemampuan untuk mengontrol sistem korban secara penuh, mencuri data sensitif, dan mempertahankan akses.
 
 🔧 Komponen Utama
 1. Anti-Analysis & EDR Evasion
